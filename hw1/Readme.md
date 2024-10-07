@@ -30,20 +30,31 @@ sudo systemctl status ssh
 ```
 ![image](https://github.com/user-attachments/assets/43adbe0b-e8db-49bf-8d5f-ff71b677dae6)
 
-#### Сгенирируем ключ SSH
+#### Сгенирируем ключ SSH в PuttyGen
 
 ```
-ssh-keygen
+![image](https://github.com/user-attachments/assets/6c351e25-f4bc-46ff-a199-3db259f2f355)
 ```
-![image](https://github.com/user-attachments/assets/a7e2f409-07e2-4945-8dff-32bc32a882b4)
 
-После генерации можно проверить наличие ключа
+#### Добавим публичный ключ на нашем сервере
 
-![image](https://github.com/user-attachments/assets/f07e3b37-a161-4f85-b04d-230580750f33)
+```
+echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcBdtfxlpr+fKkhoTxxIAYJoXV5vLlrkztykJn2gFkmDDt6Gon0EUsSY0lk10C/SzwoVmfQR3GYEtpGbeGex8b0SaSxf4K/K6GUJgsBprbasabwYpA37P2PTE9Y7fIxrLsl4PjhWbDnalysl/Qef/LTUgiH6mR1oUxYSa+HP3D/i1L0O5XNI6jw88G6a+eKZlloVbcCxkSsC1+1Ay7NjAirZUR6BeQpUEnzM/KCm3nlx3z/adYQSZlb6i36ZibK4w5N3+o2wU0GKRyCrlWKnMo+fLtWQbZyp+O2DoN9+fYRiQ4ggfI1bgDXLT6UPQdGG3QxuB5Sqs4RFvI4NdmCgTH rsa-key-20241007 >> ~/.ssh/authorized_keys
+```
 
-#### Попробуем подключиться к ВМ используя putty
+#### Свяжем пользователя и ключ
 
-![image](https://github.com/user-attachments/assets/10a3b63e-b43e-49a0-8c5c-c02bc340a125)
+```
+chown -R daa:daa ~/.ssh
+```
+
+#### Добавим закрыйтый ключ в оснастке putty клиентского устройства
+
+![image](https://github.com/user-attachments/assets/d812510c-24ad-4416-a21a-3f8cff3e066e)
+
+#### Пробуем подключиться и успешно подключаемся без пароля
+
+![image](https://github.com/user-attachments/assets/53d020ab-e080-4c15-807e-d6abb86d74b6)
 
 #### Установка postgresql
 
