@@ -57,7 +57,7 @@ chown -R daa:daa ~/.ssh
 ### Поставим Doker Engine в соответствии с инструкцией на сайте вендора
 
 ```
-[chown -R daa:daa ~/.ssh](https://docs.docker.com/engine/install/ubuntu/#installation-methods)
+https://docs.docker.com/engine/install/ubuntu/#installation-methods
 ```
 
 #### Проверим что Doker установлен
