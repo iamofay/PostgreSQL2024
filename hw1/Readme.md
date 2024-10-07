@@ -32,9 +32,7 @@ sudo systemctl status ssh
 
 #### Сгенирируем ключ SSH в PuttyGen
 
-```
 ![image](https://github.com/user-attachments/assets/afa38444-4ffb-4a91-8f2d-748630c4f31d)
-```
 
 #### Добавим публичный ключ на нашем сервере
 
