@@ -187,8 +187,26 @@ daa@daa-VMware-Virtual-Platform:~$ sudo docker run --name pg-server --network pg
 42dcfd18103a23a34c30eeb3397c101b5edaf11a3d686eb3bb372efe11e0ce65
 ```
 
-#### Подключимся из контейнера с клиентом к контейнеру с сервером
+#### Подключимся из контейнера с клиентом к контейнеру с сервером и увидим, что данные остались на месте
 
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker run -it --network pg-net --name pg-client postgres:15 psql -h pg-server -U postgres
+Password for user postgres:
+psql (15.8 (Debian 15.8-1.pgdg120+1))
+Type "help" for help.
 
+postgres=# \c hw2
+You are now connected to database "hw2" as user "postgres".
+hw2=# select * from persons
+hw2-# ;
+ id | first_name | second_name
+----+------------+-------------
+  1 | petr       | petrov
+  2 | ivan       | ivanov
+  3 | dmitriy    | dmitrov
+  4 | sergey     | sergeev
+  5 | petr       | petrov
+(5 rows)
+```
 
 
