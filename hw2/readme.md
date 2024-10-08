@@ -88,3 +88,107 @@ For more examples and ideas, visit:
  https://docs.docker.com/get-started/
 ```
 
+#### Создадим подсеть для докера
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker network create pg-net
+63848dd8157fcd9882caa0adff1e54264733f840aef3fe7e4e3136ddc0dc9ea6
+```
+
+#### Создадим контейнер с PostgreSQL 15 и смонтируем в него каталог /var/lib/postgresql
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker run --name pg-server --network pg-net -e POSTGRES_PASSWORD=postgres -d -p 5432:5432 -v /var/lib/postgres:/var/lib/postgresql/data postgres:15
+f34d76e983befa43965b8b3bb5b0b4b5e276f520b53b99ab4d3f0480161ea667
+```
+
+#### Создадим контейнер с клиентом PostgreSQL и подключимся
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker run -it --network pg-net --name pg-client postgres:15 psql -h pg-server -U postgres
+Password for user postgres:
+psql (15.8 (Debian 15.8-1.pgdg120+1))
+Type "help" for help.
+
+postgres=#
+```
+
+#### Создадим БД и таблицу с пятью записями
+
+```
+postgres=# CREATE DATABASE hw2;
+CREATE DATABASE
+postgres-# \c hw2
+You are now connected to database "hw2" as user "postgres".
+hw2=# CREATE TABLE persons(id serial, first_name text, second_name text);
+CREATE TABLE
+hw2=# INSERT INTO persons(first_name, second_name) VALUES('petr','petrov');INSERT INTO persons(first_name, second_name) VALUES('ivan','ivanov');INSERT INTO persons(first_name, second_name) VALUES('dmitriy','dmitrov');INSERT INTO persons(first_name, second_name) VALUES('sergey','sergeev');INSERT INTO persons(first_name, second_name) VALUES('petr','petrov');
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+hw2=# select * from persons                                                                                                   ;
+ id | first_name | second_name
+----+------------+-------------
+  1 | petr       | petrov
+  2 | ivan       | ivanov
+  3 | dmitriy    | dmitrov
+  4 | sergey     | sergeev
+  5 | petr       | petrov
+(5 rows)
+
+```
+
+#### Убедимся, что мы заходили под клиентским контейнером
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker ps -a
+CONTAINER ID   IMAGE         COMMAND                  CREATED          STATUS                      PORTS                                       NAMES
+4853e37904a2   postgres:15   "docker-entrypoint.s…"   54 minutes ago   Exited (0) 43 minutes ago                                               pg-client
+f34d76e983be   postgres:15   "docker-entrypoint.s…"   55 minutes ago   Up 55 minutes               0.0.0.0:5432->5432/tcp, :::5432->5432/tcp   pg-server
+fd8e12f925ea   hello-world   "/hello"                 25 hours ago     Exited (0) 25 hours ago                                                 confident_bhaskara
+26da429fa6fb   hello-world   "/hello"                 26 hours ago     Exited (0) 26 hours ago                                                 sharp_lamarr
+```
+
+#### Подключимся к БД с помощью DBeaver извне
+
+![image](https://github.com/user-attachments/assets/c8a5a8dc-80a3-4643-baa4-502802e4cc10)
+
+![image](https://github.com/user-attachments/assets/2059474b-b676-41a2-b86b-f21da6f326bf)
+
+#### Удалим контейнер с сервером БД
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker ps -a
+[sudo] пароль для daa:
+CONTAINER ID   IMAGE         COMMAND                  CREATED             STATUS                         PORTS                                       NAMES
+4853e37904a2   postgres:15   "docker-entrypoint.s…"   About an hour ago   Exited (0) About an hour ago                                               pg-client
+f34d76e983be   postgres:15   "docker-entrypoint.s…"   About an hour ago   Up About an hour               0.0.0.0:5432->5432/tcp, :::5432->5432/tcp   pg-server
+fd8e12f925ea   hello-world   "/hello"                 25 hours ago        Exited (0) 25 hours ago                                                    confident_bhaskara
+26da429fa6fb   hello-world   "/hello"                 27 hours ago        Exited (0) 27 hours ago                                                    sharp_lamarr
+daa@daa-VMware-Virtual-Platform:~$ sudo docker rm pg-server
+Error response from daemon: cannot remove container "/pg-server": container is running: stop the container before removing or force remove
+daa@daa-VMware-Virtual-Platform:~$ sudo docker stop pg-server
+pg-server
+daa@daa-VMware-Virtual-Platform:~$ sudo docker rm pg-server
+pg-server
+daa@daa-VMware-Virtual-Platform:~$ sudo docker ps -a
+CONTAINER ID   IMAGE         COMMAND                  CREATED             STATUS                         PORTS     NAMES
+4853e37904a2   postgres:15   "docker-entrypoint.s…"   About an hour ago   Exited (0) About an hour ago             pg-client
+fd8e12f925ea   hello-world   "/hello"                 25 hours ago        Exited (0) 25 hours ago                  confident_bhaskara
+26da429fa6fb   hello-world   "/hello"                 27 hours ago        Exited (0) 27 hours ago                  sharp_lamarr
+```
+
+#### Создадим заново
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo docker run --name pg-server --network pg-net -e POSTGRES_PASSWORD=postgres -d -p 5432:5432 -v /var/lib/postgres:/var/lib/postgresql/data postgres:15
+42dcfd18103a23a34c30eeb3397c101b5edaf11a3d686eb3bb372efe11e0ce65
+```
+
+#### Подключимся из контейнера с клиентом к контейнеру с сервером
+
+
+
+
