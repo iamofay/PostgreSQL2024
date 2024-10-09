@@ -56,8 +56,284 @@ chown -R daa:daa ~/.ssh
 
 ![image](https://github.com/user-attachments/assets/53d020ab-e080-4c15-807e-d6abb86d74b6)
 
-#### Установка postgresql
+#### Попробуем установить postgresql 15. Получим ошибку
 
 ```
-sudo apt install postgresql
+daa@daa-VMware-Virtual-Platform:~$ sudo apt install postgresql-client-15 postgresql-15
+Чтение списков пакетов… Готово
+Построение дерева зависимостей… Готово
+Чтение информации о состоянии… Готово
+E: Невозможно найти пакет postgresql-client-15
+E: Невозможно найти пакет postgresql-15
 ```
+
+#### Утсановим некоторые пакеты
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo apt install dirmngr ca-certificates software-properties-common apt-transport-https lsb-release curl -y
+Чтение списков пакетов… Готово
+Построение дерева зависимостей… Готово
+Чтение информации о состоянии… Готово
+Уже установлен пакет dirmngr самой новой версии (2.4.4-2ubuntu17).
+dirmngr помечен как установленный вручную.
+Уже установлен пакет ca-certificates самой новой версии (20240203).
+Уже установлен пакет software-properties-common самой новой версии (0.99.48).
+software-properties-common помечен как установленный вручную.
+Уже установлен пакет lsb-release самой новой версии (12.0-2).
+lsb-release помечен как установленный вручную.
+Уже установлен пакет curl самой новой версии (8.5.0-2ubuntu10.4).
+Следующие НОВЫЕ пакеты будут установлены:
+  apt-transport-https
+Обновлено 0 пакетов, установлено 1 новых пакетов, для удаления отмечено 0 пакетов, и 5 пакетов не обновлено.
+Необходимо скачать 3 974 B архивов.
+После данной операции объём занятого дискового пространства возрастёт на 35,8 kB.
+Пол:1 http://ru.archive.ubuntu.com/ubuntu noble/universe amd64 apt-transport-https all 2.7.14build2 [3 974 B]
+Получено 3 974 B за 0с (35,9 kB/s)
+Выбор ранее не выбранного пакета apt-transport-https.
+(Чтение базы данных … на данный момент установлено 193307 файлов и каталогов.)
+Подготовка к распаковке …/apt-transport-https_2.7.14build2_all.deb …
+Распаковывается apt-transport-https (2.7.14build2) …
+Настраивается пакет apt-transport-https (2.7.14build2) …
+```
+
+#### Импортируем PostgreSQL GPG key для верификации установочного пакета
+
+```
+daa@daa-VMware-Virtual-Platform:~$ curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /usr/share/keyrings/postgresql.gpg > /dev/null
+```
+
+#### Импортируем APT репозиторий PostgreSQL и проапдейтим перечень репозиториев.
+
+```
+daa@daa-VMware-Virtual-Platform:~$ echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main | sudo tee /etc/apt/sources.list.d/postgresql.list
+deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main
+daa@daa-VMware-Virtual-Platform:~$ sudo apt update
+Сущ:1 http://ru.archive.ubuntu.com/ubuntu noble InRelease
+Сущ:2 http://ru.archive.ubuntu.com/ubuntu noble-updates InRelease
+Сущ:3 http://ru.archive.ubuntu.com/ubuntu noble-backports InRelease
+Сущ:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Пол:5 http://apt.postgresql.org/pub/repos/apt noble-pgdg InRelease [129 kB]
+Сущ:6 https://download.docker.com/linux/ubuntu noble InRelease
+Пол:7 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main ppc64el Packages [303 kB]
+Пол:8 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main arm64 Packages [294 kB]
+Пол:9 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main amd64 Packages [306 kB]
+Получено 1 032 kB за 1с (751 kB/s)
+Чтение списков пакетов… Готово
+Построение дерева зависимостей… Готово
+Чтение информации о состоянии… Готово
+Может быть обновлено 11 пакетов. Запустите «apt list --upgradable» для их показа.
+```
+
+#### Устанавливаем PostgreSQL 15 и убедимся что кластер запущен
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory              Log file
+15  main    5432 online postgres /var/lib/postgresql/15/main /var/log/postgresql/postgresql-15-main.log
+```
+
+#### Запустим psql из под УЗ postgres
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres psql
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 15.8 (Ubuntu 15.8-1.pgdg24.04+1))
+Введите "help", чтобы получить справку.
+
+postgres=#
+```
+
+#### Создадим бд и произвольную таблицу в ней
+
+```
+postgres=# CREATE DATABASE hw3;
+CREATE DATABASE
+postgres=# \c hw3
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 15.8 (Ubuntu 15.8-1.pgdg24.04+1))
+Вы подключены к базе данных "hw3" как пользователь "postgres".
+hw3=# create table test(c1 text);
+CREATE TABLE
+hw3=# insert into test values('1');
+INSERT 0 1
+hw3=# \q
+```
+
+#### Остановим Postgres через sudo -u postgres pg_ctlcluster 15 main stop
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_ctlcluster 15 main stop
+Warning: stopping the cluster using pg_ctlcluster will mark the systemd unit as failed. Consider using systemctl:
+  sudo systemctl stop postgresql@15-main
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory              Log file
+15  main    5432 down   postgres /var/lib/postgresql/15/main /var/log/postgresql/postgresql-15-main.log
+```
+
+#### Добавим диск 10Гб к ВМ
+
+![image](https://github.com/user-attachments/assets/72605749-85d0-4820-a971-4752e28e10fa)
+
+
+#### Идентифицируем диск в системе
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo parted -l | grep Error
+[sudo] пароль для daa:
+Ошибка: /dev/sdb: метка диска не определена
+```
+
+#### Разметим диск в GPT
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo parted /dev/sdb mklabel gpt
+```
+
+#### Создадим раздел
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo parted -a opt /dev/sdb mkpart primary ext4 0% 100%
+```
+
+#### Посмотрим на него
+
+```
+daa@daa-VMware-Virtual-Platform:~$ lsblk
+NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+fd0      2:0    1     4K  0 disk
+loop0    7:0    0     4K  1 loop /snap/bare/5
+loop1    7:1    0 269,8M  1 loop /snap/firefox/4793
+loop2    7:2    0  74,2M  1 loop /snap/core22/1621
+loop3    7:3    0  74,3M  1 loop /snap/core22/1612
+loop4    7:4    0 505,1M  1 loop /snap/gnome-42-2204/176
+loop5    7:5    0  10,7M  1 loop /snap/firmware-updater/127
+loop6    7:6    0  91,7M  1 loop /snap/gtk-common-themes/1535
+loop7    7:7    0  10,5M  1 loop /snap/snap-store/1173
+loop8    7:8    0  38,8M  1 loop /snap/snapd/21759
+loop9    7:9    0   564K  1 loop /snap/snapd-desktop-integration/247
+loop10   7:10   0   500K  1 loop /snap/snapd-desktop-integration/178
+sda      8:0    0    20G  0 disk
+├─sda1   8:1    0     1M  0 part
+└─sda2   8:2    0    20G  0 part /
+**sdb      8:16   0    10G  0 disk
+└─sdb1   8:17   0    10G  0 part**
+sr0     11:0    1    88M  0 rom  /media/daa/CDROM
+sr1     11:1    1   5,8G  0 rom  /media/daa/Ubuntu 24.04.1 LTS amd64
+```
+
+#### Создадим файловую системы
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo mkfs.ext4 -L datapartition /dev/sdb1
+mke2fs 1.47.0 (5-Feb-2023)
+Creating filesystem with 2620928 4k blocks and 655360 inodes
+Filesystem UUID: 2e01e74a-eb0d-40c6-b911-20ddc205370a
+Superblock backups stored on blocks:
+        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632
+
+Allocating group tables: done
+Сохранение таблицы inod'ов: done
+Создание журнала (16384 блоков): готово
+Writing superblocks and filesystem accounting information: готово
+```
+
+#### Добавим в fstab для автоматического монтирования при запуске системы
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo nano /etc/fstab
+```
+
+![image](https://github.com/user-attachments/assets/8d10ab48-443e-412d-b8e6-14717a6e916c)
+
+#### Перезагрузим ВМ и проверим результат
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo reboot now
+
+Broadcast message from root@daa-VMware-Virtual-Platform on pts/1 (Wed 2024-10-09 16:23:06 MSK):
+
+The system will reboot now!
+```
+
+```
+Last login: Wed Oct  9 16:07:43 2024 from 192.168.11.1
+daa@daa-VMware-Virtual-Platform:~$ lsblk
+NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+fd0      2:0    1     4K  0 disk
+loop0    7:0    0     4K  1 loop /snap/bare/5
+loop1    7:1    0  74,3M  1 loop /snap/core22/1612
+loop2    7:2    0  74,2M  1 loop /snap/core22/1621
+loop3    7:3    0 269,8M  1 loop /snap/firefox/4793
+loop4    7:4    0  10,7M  1 loop /snap/firmware-updater/127
+loop5    7:5    0 505,1M  1 loop /snap/gnome-42-2204/176
+loop6    7:6    0  91,7M  1 loop /snap/gtk-common-themes/1535
+loop7    7:7    0  38,8M  1 loop /snap/snapd/21759
+loop8    7:8    0  10,5M  1 loop /snap/snap-store/1173
+loop9    7:9    0   500K  1 loop /snap/snapd-desktop-integration/178
+loop10   7:10   0   564K  1 loop /snap/snapd-desktop-integration/247
+sda      8:0    0    20G  0 disk
+├─sda1   8:1    0     1M  0 part
+└─sda2   8:2    0    20G  0 part /
+**sdb      8:16   0    10G  0 disk
+└─sdb1   8:17   0    10G  0 part /mnt/data**
+sr0     11:0    1    88M  0 rom
+sr1     11:1    1   5,8G  0 rom
+```
+
+#### Сделаем пользователя postgres владельцем /mnt/data
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo chown -R postgres:postgres /mnt/data
+daa@daa-VMware-Virtual-Platform:~$ ls -l /mnt/data
+итого 16
+drwx------ 2 postgres postgres 16384 окт  9 16:00 lost+found
+```
+
+#### Перенесем все из папки var/lib/postgres/15 в /mnt/data
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo mv /var/lib/postgresql/15 /mnt/data
+```
+
+#### Попробуем запустить кластер и получим ошибку. Ошибка связана с тем, что файлы БД были перемещены на прошлом этапе
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_ctlcluster 15 main start
+Error: /var/lib/postgresql/15/main is not accessible or does not exist
+```
+
+#### Поменяем конфигурационный файл postgresql.conf, пропишем корректный путь
+
+```
+daa@daa-VMware-Virtual-Platform:~$ cd /etc/postgresql/15/main
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/15/main$ sudo nano postgresql.conf
+```
+![image](https://github.com/user-attachments/assets/0bceaff1-98fb-4c06-be9e-5913cb1e36bd)
+
+#### Теперь кластер успешно запускается
+
+```
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/15/main$ sudo -u postgres pg_ctlcluster 15 main start
+Warning: the cluster will not be running as a systemd service. Consider using systemctl:
+  sudo systemctl start postgresql@15-main
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/15/main$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory    Log file
+15  main    5432 online postgres /mnt/data/15/main /var/log/postgresql/postgresql-15-main.log
+```
+
+#### Проверим, что там в БД. Таблица на месте
+
+```
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/15/main$ sudo -u postgres psql
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 15.8 (Ubuntu 15.8-1.pgdg24.04+1))
+Введите "help", чтобы получить справку.
+
+postgres=# \c hw3
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 15.8 (Ubuntu 15.8-1.pgdg24.04+1))
+Вы подключены к базе данных "hw3" как пользователь "postgres".
+hw3=# select * from test;
+ c1
+----
+ 1
+(1 строка)
+```
+
+
