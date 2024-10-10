@@ -60,9 +60,94 @@ chown -R daa:daa ~/.ssh
 
 ```
 daa@daa-VMware-Virtual-Platform:~$ sudo apt install postgresql-client-14 postgresql-14
-daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters               Ver Cluster Port Status Owner    Data directory              Log file
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory              Log file
 14  main    5432 online postgres /var/lib/postgresql/14/main /var/log/postgresql/postgresql-14-main.log
 ```
+
+#### Подключимся к PostgreSQL
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres psql
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Введите "help", чтобы получить справку.
+
+postgres=#
+```
+
+#### Создадим и подключимся к новой БД testnm
+
+```
+postgres=# CREATE DATABASE testdb;
+CREATE DATABASE
+postgres=# \c testdb
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+```
+
+#### Создадим схему testnm
+
+```
+testdb=# CREATE SCHEMA testnm;
+CREATE SCHEMA
+```
+
+#### Создадим новую таблицу t1 с одной колонкой c1 типа integer
+
+```
+testdb=# CREATE TABLE t1(c1 integer);
+CREATE TABLE
+```
+
+#### Создадим новую таблицу t1 с одной колонкой c1 типа integer и вставим строку со значением c1=1
+
+```
+testdb=# INSERT INTO t1(c1) VALUES(1);
+INSERT 0 1
+testdb=# select * from t1
+;
+ c1
+----
+  1
+(1 строка)
+```
+
+#### Создадим новую роль readonly
+
+```
+testdb=# CREATE role readonly;
+CREATE ROLE
+```
+
+#### Дадим новой роли право на подключение к базе данных testdb
+
+```
+testdb=# grant connect on DATABASE testdb TO readonly;
+GRANT
+```
+
+#### Дадим новой роли право на использование схемы testnm
+
+```
+testdb=# grant usage on SCHEMA testnm to readonly;
+GRANT
+```
+
+#### Дадим новой роли право на select для всех таблиц схемы testnm
+
+```
+testdb=# grant select on all tables in schema testnm to readonly;
+GRANT
+```
+
+#### Создадим пользователя testread с паролем test123 и ролью readonly
+
+```
+testdb=# create user testread with password 'test123' in role readonly;
+CREATE ROLE
+```
+
+
 
 
 
