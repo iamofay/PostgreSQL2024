@@ -126,13 +126,6 @@ testdb=# grant connect on DATABASE testdb TO readonly;
 GRANT
 ```
 
-#### Дадим новой роли право на использование схемы testnm
-
-```
-testdb=# grant usage on SCHEMA testnm to readonly;
-GRANT
-```
-
 #### Дадим новой роли право на select для всех таблиц схемы testnm
 
 ```
@@ -147,9 +140,216 @@ testdb=# create user testread with password 'test123' in role readonly;
 CREATE ROLE
 ```
 
+#### При попытке подключиться новым пользователем к базе получим ошибку
+
+```
+postgres=# \c testdb testread
+подключиться к серверу через сокет "/var/run/postgresql/.s.PGSQL.5432" не удалось: ВАЖНО:  пользователь "testread" не прошёл проверку подлинности (Peer)
+Сохранено предыдущее подключение
+```
+
+#### Исправим проблему в pg_hba.conf, после внесения изменений перезапустим кластер, чтобы изменения применились
+
+```
+daa@daa-VMware-Virtual-Platform:~$ cd /etc/postgresql/14/main/
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/14/main$ sudo nano pg_hba.conf  
+```
+
+![image](https://github.com/user-attachments/assets/44c5a2f1-dafe-42e4-b132-e93153566f0a)
+
+#### Успешно подключимся пользователем 
+
+```
+daa@daa-VMware-Virtual-Platform:/etc/postgresql/14/main$ sudo -u postgres psql
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Введите "help", чтобы получить справку.
+
+postgres=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=>
+```
+
+#### Попробуем обратиться к таблице select * from t1;
+
+```
+testdb=> select * from t1;
+ОШИБКА:  нет доступа к таблице t1
+```
+
+Закономерно получили ошибку доступа, т.к. таблица t1 находится в схеме public, на которую прав мы не давали. Но мы это исправим, дадим прав для схемы.
+
+```
+testdb=> \c testdb postgres
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+testdb=# grant select on all tables in schema public to readonly;
+GRANT
+testdb=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=> select * from t1;
+ c1
+----
+  1
+(1 строка)
+```
+
+Теперь все получилось.
+
+#### Вернемся в пользователя postgres
+
+```
+testdb=> \c testdb postgres
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+testdb=#
+```
+
+#### Удалим таблицу t1
+
+```
+testdb=# drop table t1;
+DROP TABLE
+```
 
 
 
+#### Создадим новую таблицу t1 с явным указанием схемы testnm
 
+```
+testdb=# CREATE TABLE testnm.t1(c1 integer);
+CREATE TABLE
+testdb=# INSERT INTO testnm.t1(c1) VALUES(1);
+INSERT 0 1
+testdb=# select * from testnm.t1
+;
+ c1
+----
+  1
+(1 строка)
+```
 
+#### Создадим новую таблицу t1 с одной колонкой c1 типа integer и вставим строку со значением c1=1
 
+```
+testdb=# INSERT INTO testnm.t1(c1) VALUES(1);
+INSERT 0 1
+testdb=# select * from testnm.t1
+;
+ c1
+----
+  1
+(1 строка)
+```
+
+Связано это с тем, что права были выданы пользователю для тех таблиц, которые уже были созданы на момент определения прав.
+Для того, чтобы это исправить необходимо прибегнуть к ALTER DEFAULT PRIVILEGES, назначению прав по умолчанию
+
+#### Дадим прав по дефолту для роли readonly
+
+```
+testdb=> \c testdb postgres
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+testdb=# alter default privileges in schema testnm grant select on tables to readonly;
+ALTER DEFAULT PRIVILEGES
+```
+
+#### Попробуем создать новую таблицу t3 в схеме testnm
+
+```
+testdb=# CREATE TABLE testnm.t3(c1 integer);
+CREATE TABLE
+testdb=# INSERT INTO testnm.t3(c1) VALUES(1);
+INSERT 0 1
+```
+
+#### Проверим результат под пользователем testread
+
+```
+testdb=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=> select * from testnm.t3;
+ c1
+----
+  1
+(1 строка)
+```
+
+Теперь для всех создаваемых таблиц члены роли readonly будут иметь парава на select, в том числе пользователь testread
+
+#### Попробуем выполнить команду create table t2(c1 integer); insert into t2 values (2); под пользователем testread
+
+```
+testdb=> create table t2(c1 integer);
+CREATE TABLE
+testdb=> insert into t2 values (2);
+INSERT 0 1
+```
+
+Получили закономерный успех, т.к. в соответствии с документацией https://postgrespro.ru/docs/postgresql/14/ddl-schemas все по умолчаню имеют доступ CREATE и USAGE в public, но при условии, что у них есть права на подключение.
+
+![image](https://github.com/user-attachments/assets/b3a8317c-b90a-4c2b-bc1c-8b16c52b504e)
+
+#### Такую дыру лучше прикрыть
+
+```
+testdb=> \c testdb postgres
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+testdb=# REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE
+testdb=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=> create table t3(c1 integer);
+ОШИБКА:  нет доступа к схеме public
+СТРОКА 1: create table t3(c1 integer);
+```
+
+Теперь прав на создание таблиц в схеме public нет
+
+#### Такую дыру лучше прикрыть
+
+```
+testdb=> \c testdb postgres
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "postgres".
+testdb=# REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE
+testdb=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=> create table t3(c1 integer);
+ОШИБКА:  нет доступа к схеме public
+СТРОКА 1: create table t3(c1 integer);
+                       ^
+```
+
+#### Однако INSERT в уже созданную таблицу работает, это можно решить удалением таблица или забрав права на USAGE
+
+```
+testdb=# REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+REVOKE
+testdb=# \c testdb testread
+Пароль пользователя testread:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 14.13 (Ubuntu 14.13-1.pgdg24.04+1))
+Вы подключены к базе данных "testdb" как пользователь "testread".
+testdb=> insert into t2 values (2);
+ОШИБКА:  отношение "t2" не существует
+СТРОКА 1: insert into t2 values (2);
+                      ^
+testdb=> insert into public.t2 values (2);
+ОШИБКА:  нет доступа к схеме public
+СТРОКА 1: insert into public.t2 values (2);
+                      ^
+```
+
+Но чтобы такого не было, лучше заранее подготовить роли в БД и отключить INSTERT в Public для всех пользователей.
