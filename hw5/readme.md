@@ -657,6 +657,7 @@ postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));         
 #### Не забыть вывести номер шага цикла.
 
 Процедура выполняется в блоке DO
+
 Анонимные блоки кода заключаются в $$
 
 ```
