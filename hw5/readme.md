@@ -520,21 +520,169 @@ Device             tps    kB_read/s    kB_wrtn/s    kB_dscd/s    kB_read    kB_w
 nvme0n1        2367,40         0,00     20095,20         0,00          0     100476          0
 ```
 
-#### Но я рискну предположить, что такое ограничение связано с производительностью диска. Но не понятно, почему она изменилась.
+#### Но я рискну предположить, что такое ограничение с производительностью БД все таки связано с производительностью диска. Но не понятно, почему она изменилась.
 
+#### Создадим таблицу с текстовым полем и заполнить случайными или сгенерированными данным в размере 1млн строк
 
-Создать таблицу с текстовым полем и заполнить случайными или сгенерированными данным в размере 1млн строк
-Посмотреть размер файла с таблицей
-5 раз обновить все строчки и добавить к каждой строчке любой символ
-Посмотреть количество мертвых строчек в таблице и когда последний раз приходил автовакуум
-Подождать некоторое время, проверяя, пришел ли автовакуум
-5 раз обновить все строчки и добавить к каждой строчке любой символ
-Посмотреть размер файла с таблицей
-Отключить Автовакуум на конкретной таблице
-10 раз обновить все строчки и добавить к каждой строчке любой символ
-Посмотреть размер файла с таблицей
-Объясните полученный результат
-Не забудьте включить автовакуум)
-Задание со *:
-Написать анонимную процедуру, в которой в цикле 10 раз обновятся все строчки в искомой таблице.
-Не забыть вывести номер шага цикла.
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres psql
+[sudo] пароль для daa:
+psql (17.0 (Ubuntu 17.0-1.pgdg24.04+1), сервер 15.8 (Ubuntu 15.8-1.pgdg24.04+1))
+Введите "help", чтобы получить справку.
+
+postgres=# CREATE TABLE text_table (
+    id SERIAL PRIMARY KEY,
+    text TEXT
+);
+CREATE TABLE
+postgres=# INSERT INTO text_table
+SELECT id, random()::TEXT
+FROM generate_series(1, 1000000) AS id;
+INSERT 0 1000000
+```
+
+#### Посмотрим размер файла
+
+```
+postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));
+ pg_size_pretty
+----------------
+ 72 MB
+(1 строка)
+```
+
+#### 5 раз обновим все строчки и добавить к каждой строчке любой символ
+
+```
+postgres=# update text_table SET text = random()::TEXT || 'Q';
+UPDATE 1000000
+postgres=# update text_table SET text = random()::TEXT || '!';
+UPDATE 1000000
+postgres=# update text_table SET text = random()::TEXT || 'й';
+UPDATE 1000000
+postgres=# update text_table SET text = random()::TEXT || '5';
+UPDATE 1000000
+postgres=# update text_table SET text = random()::TEXT || 'Йw!2';
+UPDATE 1000000
+```
+
+#### Посмотрим количество мертвых строчек в таблице и когда последний раз приходил автовакуум. По всей видимости автовакуум уже прошел
+
+```
+postgres=# SELECT relname, n_live_tup, n_dead_tup, trunc(100*n_dead_tup/(n_live_tup+1))::float "ratio%", last_autovacuum FROM pg_stat_user_tables WHERE relname = 'text_table';
+  relname   | n_live_tup | n_dead_tup | ratio% |        last_autovacuum
+------------+------------+------------+--------+-------------------------------
+ text_table |    1000000 |          0 |      0 | 2024-10-18 12:56:52.362114+03
+(1 строка)
+```
+
+#### Повторим предыдущий шаг и проверим еще раз. Теперь я успел)
+
+```
+postgres=# SELECT relname, n_live_tup, n_dead_tup, trunc(100*n_dead_tup/(n_live_tup+1))::float "ratio%", last_autovacuum FROM pg_stat_user_tables WHERE relname = 'text_table';
+  relname   | n_live_tup | n_dead_tup | ratio% |        last_autovacuum
+------------+------------+------------+--------+-------------------------------
+ text_table |    1000000 |    4991055 |    499 | 2024-10-18 12:56:52.362114+03
+(1 строка)
+```
+```
+postgres=# SELECT relname, n_live_tup, n_dead_tup, trunc(100*n_dead_tup/(n_live_tup+1))::float "ratio%", last_autovacuum FROM pg_stat_user_tables WHERE relname = 'text_table';
+  relname   | n_live_tup | n_dead_tup | ratio% |        last_autovacuum
+------------+------------+------------+--------+-------------------------------
+ text_table |    1000000 |          0 |      0 | 2024-10-18 12:59:53.629429+03
+(1 строка)
+```
+
+#### 5 раз обновить все строчки и добавить к каждой строчке любой символ. По скольку мы это уже сделали посмотрим на размер
+
+```
+postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));          pg_size_pretty
+----------------
+ 391 MB
+(1 строка)
+```
+
+#### Отключим автовакуум на нашей таблице
+
+```
+postgres=# alter table text_table set (autovacuum_enabled=off);
+ALTER TABLE
+```
+
+#### 10 раз обновим все строчки и добавить к каждой строчке любой символ.
+
+```
+postgres=# update text_table SET text = random()::TEXT || '5';
+UPDATE 1000000
+```
+
+#### Посмотрим размер файла с таблицей
+
+```
+postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));
+ pg_size_pretty
+----------------
+ 640 MB
+(1 строка)
+```
+
+#### Увеличение объема связано с тем, что мы добавили данные, но т.к. автовакуум отключен, мертвые строки в таблице все равно присутствуют.
+
+```
+postgres=# SELECT relname, n_live_tup, n_dead_tup, trunc(100*n_dead_tup/(n_live_tup+1))::float "ratio%", last_autovacuum FROM pg_stat_user_tables WHERE relname = 'text_table';
+  relname   | n_live_tup | n_dead_tup | ratio% |        last_autovacuum
+------------+------------+------------+--------+-------------------------------
+ text_table |    1000000 |    9968050 |    996 | 2024-10-18 12:59:53.629429+03
+(1 строка)
+```
+
+#### Если включить автовакуум, то объем не изменится, но мертвые строки будут почищены
+
+```
+postgres=# alter table text_table set (autovacuum_enabled=on);
+postgres=# SELECT relname, n_live_tup, n_dead_tup, trunc(100*n_dead_tup/(n_live_tup+1))::float "ratio%", last_autovacuum FROM pg_stat_user_tables WHERE relname = 'text_table';
+  relname   | n_live_tup | n_dead_tup | ratio% |       last_autovacuum
+------------+------------+------------+--------+------------------------------
+ text_table |    1000000 |          0 |      0 | 2024-10-18 13:10:18.10202+03
+(1 строка)
+
+postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));          pg_size_pretty
+----------------
+ 640 MB
+(1 строка)
+```
+
+#### Задание со *:
+#### Написать анонимную процедуру, в которой в цикле 10 раз обновятся все строчки в искомой таблице.
+#### Не забыть вывести номер шага цикла.
+
+Процедура выполняется в блоке DO
+Анонимные блоки кода заключаются в $$
+
+```
+postgres=# DO $$
+BEGIN
+    FOR i IN 1..10 LOOP
+        update text_table SET text = gen_random_uuid() || 'Q';
+        RAISE NOTICE 'Шаг №:%', i;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+ЗАМЕЧАНИЕ:  Шаг №:1
+ЗАМЕЧАНИЕ:  Шаг №:2
+ЗАМЕЧАНИЕ:  Шаг №:3
+ЗАМЕЧАНИЕ:  Шаг №:4
+ЗАМЕЧАНИЕ:  Шаг №:5
+ЗАМЕЧАНИЕ:  Шаг №:6
+ЗАМЕЧАНИЕ:  Шаг №:7
+ЗАМЕЧАНИЕ:  Шаг №:8
+ЗАМЕЧАНИЕ:  Шаг №:9
+ЗАМЕЧАНИЕ:  Шаг №:10
+DO
+postgres=# SELECT pg_size_pretty(pg_total_relation_size('text_table'));
+ pg_size_pretty
+----------------
+ 912 MB
+(1 строка)
+```
+
