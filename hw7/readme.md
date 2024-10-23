@@ -192,8 +192,6 @@ testlock=*# update text_table SET text = 'asd3' where id=1;
 Сообщения в журнале
 
 ```
-2024-10-23 15:05:37.941 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 получил в режиме AccessExclusiveLock блокировку "отношение 16390 базы данных 16388" через 895515.388 мс
-2024-10-23 15:05:37.941 MSK [22870] postgres@testlock ОПЕРАТОР:  vacuum FULL text_table ;
 2024-10-23 15:07:13.328 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 продолжает ожидать в режиме ShareLock блокировку "транзакция 747" в течение 214.302 мс
 2024-10-23 15:07:13.328 MSK [22870] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22800. Wait queue: 22870.
 2024-10-23 15:07:13.328 MSK [22870] postgres@testlock КОНТЕКСТ:  при изменении кортежа (6416,42) в отношении "text_table"
@@ -203,10 +201,99 @@ testlock=*# update text_table SET text = 'asd3' where id=1;
 2024-10-23 15:08:26.665 MSK [23557] postgres@testlock СООБЩЕНИЕ:  процесс 23557 продолжает ожидать в режиме ExclusiveLock блокировку "кортеж (6416,42) отношения 16390 базы данных 16388" в течение 212.105 мс
 2024-10-23 15:08:26.665 MSK [23557] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22870. Wait queue: 23557.
 2024-10-23 15:08:26.665 MSK [23557] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'asd3' where id=1;
+2024-10-23 15:26:53.330 MSK [22870] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'QWE2' where id=1;
+2024-10-23 15:26:53.330 MSK [23557] postgres@testlock СООБЩЕНИЕ:  процесс 23557 получил в режиме ExclusiveLock блокировку "кортеж (6416,42) отношения 16390 базы данных 16388" через 1106876.928 мс
+2024-10-23 15:26:53.330 MSK [23557] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'asd3' where id=1;
+2024-10-23 15:26:53.540 MSK [23557] postgres@testlock СООБЩЕНИЕ:  процесс 23557 продолжает ожидать в режиме ShareLock блокировку "транзакция 747" в течение 210.085 мс
+2024-10-23 15:26:53.540 MSK [23557] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22800. Wait queue: 23557.
+2024-10-23 15:26:53.540 MSK [23557] postgres@testlock КОНТЕКСТ:  при изменении кортежа (6416,42) в отношении "text_table"
+2024-10-23 15:26:53.540 MSK [23557] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'asd3' where id=1;
+2024-10-23 15:27:02.951 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 продолжает ожидать в режиме ExclusiveLock блокировку "кортеж (6416,42) отношения 16390 базы данных 16388" в течение 212.854 мс
+2024-10-23 15:27:02.951 MSK [22870] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 23557. Wait queue: 22870.
+2024-10-23 15:27:02.951 MSK [22870] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'QWE2' where id=1;
+```
+
+Посмотрим блокировки в представлении pg_locks
+
+```
+testlock=# select locktype,database,relation,page,tuple,transactionid,virtualtransaction,pid,mode,granted,fastpath from pg_locks where pid in (22800,22870,23557)  order by pid ;
+   locktype    | database | relation | page | tuple | transactionid | virtualtransaction |  pid  |       mode       | granted | fastpath
+---------------+----------+----------+------+-------+---------------+--------------------+-------+------------------+---------+----------
+ transactionid |          |          |      |       |           747 | 4/74               | 22800 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16396 |      |       |               | 4/74               | 22800 | RowExclusiveLock | t       | t
+ relation      |    16388 |    16390 |      |       |               | 4/74               | 22800 | RowExclusiveLock | t       | t
+ virtualxid    |          |          |      |       |               | 4/74               | 22800 | ExclusiveLock    | t       | t
+ virtualxid    |          |          |      |       |               | 5/22               | 22870 | ExclusiveLock    | t       | t
+ relation      |    16388 |    16390 |      |       |               | 5/22               | 22870 | RowExclusiveLock | t       | t
+ transactionid |          |          |      |       |           750 | 5/22               | 22870 | ExclusiveLock    | t       | f
+ tuple         |    16388 |    16390 | 6416 |    42 |               | 5/22               | 22870 | ExclusiveLock    | f       | f
+ relation      |    16388 |    16396 |      |       |               | 5/22               | 22870 | RowExclusiveLock | t       | t
+ tuple         |    16388 |    16390 | 6416 |    42 |               | 6/16               | 23557 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16390 |      |       |               | 6/16               | 23557 | RowExclusiveLock | t       | t
+ virtualxid    |          |          |      |       |               | 6/16               | 23557 | ExclusiveLock    | t       | t
+ transactionid |          |          |      |       |           747 | 6/16               | 23557 | ShareLock        | f       | f
+ transactionid |          |          |      |       |           749 | 6/16               | 23557 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16396 |      |       |               | 6/16               | 23557 | RowExclusiveLock | t       | t
+(15 строк)
+```
+
+Блокировки сесси 1
+
+1 Блокировка транзакции в режиме ExclusiveLock (параллельно с этой транзакцией допускается только чтение)
+2-3 Блокировка для изменения таблицы
+4 блкировка витруального номера транзакции
+
+```
+ transactionid |          |          |      |       |           747 | 4/74               | 22800 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16396 |      |       |               | 4/74               | 22800 | RowExclusiveLock | t       | t
+ relation      |    16388 |    16390 |      |       |               | 4/74               | 22800 | RowExclusiveLock | t       | t
+ virtualxid    |          |          |      |       |               | 4/74               | 22800 | ExclusiveLock    | t       | t
+```
+
+Блокировки сесси 2
+
+1 блокировка виртуального номера транзацкции
+2, 5 блокировка для таблицы и ключа
+3 блокировка транзакции
+4 блокировка строки в режиме кортеж для обновления
+
+```
+ virtualxid    |          |          |      |       |               | 5/22               | 22870 | ExclusiveLock    | t       | t
+ relation      |    16388 |    16390 |      |       |               | 5/22               | 22870 | RowExclusiveLock | t       | t
+ transactionid |          |          |      |       |           750 | 5/22               | 22870 | ExclusiveLock    | t       | f
+ tuple         |    16388 |    16390 | 6416 |    42 |               | 5/22               | 22870 | ExclusiveLock    | f       | f
+ relation      |    16388 |    16396 |      |       |               | 5/22               | 22870 | RowExclusiveLock | t       | t
+```
+
+Блокировки сесси 3
+
+1 блокировка строки в режиме кортеж для обновления
+2, 6 блокировка для таблицы и ключа
+3 блокировка виртуального номера транзацкции
+4, 5 блокировка транзакции
+
+```
+tuple         |    16388 |    16390 | 6416 |    42 |               | 6/16               | 23557 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16390 |      |       |               | 6/16               | 23557 | RowExclusiveLock | t       | t
+ virtualxid    |          |          |      |       |               | 6/16               | 23557 | ExclusiveLock    | t       | t
+ transactionid |          |          |      |       |           747 | 6/16               | 23557 | ShareLock        | f       | f
+ transactionid |          |          |      |       |           749 | 6/16               | 23557 | ExclusiveLock    | t       | f
+ relation      |    16388 |    16396 |      |       |               | 6/16               | 23557 | RowExclusiveLock | t       | t
+```
+
+Или немного в другом виде
+
+```
+testlock=# SELECT locktype, mode, granted, pid, pg_blocking_pids(pid) AS wait_for FROM pg_locks WHERE relation = 'text_table'::regclass order by pid;
+ locktype |       mode       | granted |  pid  | wait_for
+----------+------------------+---------+-------+----------
+ relation | RowExclusiveLock | t       | 22800 | {}
+ relation | RowExclusiveLock | t       | 22870 | {23557}
+ tuple    | ExclusiveLock    | f       | 22870 | {23557}
+ relation | RowExclusiveLock | t       | 23557 | {22800}
+ tuple    | ExclusiveLock    | t       | 23557 | {22800}
 ```
 
 
-
-Смоделируйте ситуацию обновления одной и той же строки тремя командами UPDATE в разных сеансах. Изучите возникшие блокировки в представлении pg_locks и убедитесь, что все они понятны. Пришлите список блокировок и объясните, что значит каждая.
 Воспроизведите взаимоблокировку трех транзакций. Можно ли разобраться в ситуации постфактум, изучая журнал сообщений?
 Могут ли две транзакции, выполняющие единственную команду UPDATE одной и той же таблицы (без where), заблокировать друг друга?
