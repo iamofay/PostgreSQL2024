@@ -128,10 +128,84 @@ testlock=# SHOW log_lock_waits;
 (1 строка)
 ```
 
-#### Воспроизведем ситуацию при которой в журнале появится информация о блокировках
+#### Воспроизведем ситуацию при которой в журнале появится информация о блокировка
+
+В сессии 1 запустим запрос на изменение данных в таблице
+
+```
+testlock=# begin;
+BEGIN
+testlock=*# update text_table SET text = 'QWE123asd' where id=1;
+UPDATE 1
+testlock=*# SELECT pg_backend_pid();
+ pg_backend_pid
+----------------
+          22800
+(1 строка)
+```
+
+В сессии 2 попробуем выполнить, например, автовакуум. Запрос завис в ожидании
+
+```
+testlock=# vacuum FULL text_table ;
+
+```
+
+В третьей сессии посмотрим журнал нашей БД postgresql-15-hw7.log, где уже увидим информацию о блокировке
+
+```
+daa@daa-VMware-Virtual-Platform:~$ tail -n 10 /var/log/postgresql/postgresql-15-hw7.log
+2024-10-23 14:50:42.630 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 продолжает ожидать в режиме AccessExclusiveLock блокировку "отношение 16390 базы данных 16388" в течение 204.056 мс
+2024-10-23 14:50:42.630 MSK [22870] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22800. Wait queue: 22870.
+2024-10-23 14:50:42.630 MSK [22870] postgres@testlock ОПЕРАТОР:  vacuum FULL text_table ;
+```
+
+#### Смоделируем ситуацию обновления одной и той же строки тремя командами UPDATE в разных сеансах.
+
+Суссия 1
+
+```
+testlock=# begin;
+BEGIN
+testlock=*# update text_table SET text = 'QWE123asd1' where id=1;
+UPDATE 1
+```
+
+Сессия 2
+
+```
+testlock=# begin;
+BEGIN
+testlock=*# update text_table SET text = 'QWE2' where id=1;
+
+```
+
+Сессия 3
+
+```
+testlock=# begin;
+BEGIN
+testlock=*# update text_table SET text = 'asd3' where id=1;
+
+```
+
+Сообщения в журнале
+
+```
+2024-10-23 15:05:37.941 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 получил в режиме AccessExclusiveLock блокировку "отношение 16390 базы данных 16388" через 895515.388 мс
+2024-10-23 15:05:37.941 MSK [22870] postgres@testlock ОПЕРАТОР:  vacuum FULL text_table ;
+2024-10-23 15:07:13.328 MSK [22870] postgres@testlock СООБЩЕНИЕ:  процесс 22870 продолжает ожидать в режиме ShareLock блокировку "транзакция 747" в течение 214.302 мс
+2024-10-23 15:07:13.328 MSK [22870] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22800. Wait queue: 22870.
+2024-10-23 15:07:13.328 MSK [22870] postgres@testlock КОНТЕКСТ:  при изменении кортежа (6416,42) в отношении "text_table"
+2024-10-23 15:07:13.328 MSK [22870] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'QWE2' where id=1;
+2024-10-23 15:07:43.352 MSK [23550] postgres@postgres ОШИБКА:  отношение "text_table" не существует (символ 8)
+2024-10-23 15:07:43.352 MSK [23550] postgres@postgres ОПЕРАТОР:  update text_table SET text = 'asd3' where id=1;
+2024-10-23 15:08:26.665 MSK [23557] postgres@testlock СООБЩЕНИЕ:  процесс 23557 продолжает ожидать в режиме ExclusiveLock блокировку "кортеж (6416,42) отношения 16390 базы данных 16388" в течение 212.105 мс
+2024-10-23 15:08:26.665 MSK [23557] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 22870. Wait queue: 23557.
+2024-10-23 15:08:26.665 MSK [23557] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'asd3' where id=1;
+```
 
 
-А так же необходимо включить журналирование 
 
 Смоделируйте ситуацию обновления одной и той же строки тремя командами UPDATE в разных сеансах. Изучите возникшие блокировки в представлении pg_locks и убедитесь, что все они понятны. Пришлите список блокировок и объясните, что значит каждая.
 Воспроизведите взаимоблокировку трех транзакций. Можно ли разобраться в ситуации постфактум, изучая журнал сообщений?
