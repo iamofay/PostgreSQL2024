@@ -369,8 +369,56 @@ testlock=*# update text_table SET text = 'asd3' where id=1;
 2024-10-23 16:14:49.682 MSK [22800] postgres@testlock ОПЕРАТОР:  update text_table SET text = 'QWE123asd1' where id=3;
 ```
 
+#### * Проверим, могут ли две транзакции, выполняющие единственную команду UPDATE одной и той же таблицы (без where), заблокировать друг друга?
 
-Могут ли две транзакции, выполняющие единственную команду UPDATE одной и той же таблицы (без where), заблокировать друг друга?
+Сессия 1
 
-Задание со звездочкой*
-Попробуйте воспроизвести такую ситуацию.
+```
+testlock=# BEGIN ISOLATION LEVEL REPEATABLE READ;
+UPDATE text_table SET text= (select id from text_table order by id asc limit 1 for update);
+COMMIT;
+BEGIN
+ОШИБКА:  обнаружена взаимоблокировка
+ПОДРОБНОСТИ:  Процесс 25823 ожидает в режиме ShareLock блокировку "транзакция 762"; заблокирован процессом 25837.
+Процесс 25837 ожидает в режиме ShareLock блокировку "транзакция 761"; заблокирован процессом 25823.
+ПОДСКАЗКА:  Подробности запроса смотрите в протоколе сервера.
+КОНТЕКСТ:  при изменении кортежа (10834,179) в отношении "text_table"
+ROLLBACK
+```
+
+Сессия 2
+
+```
+testlock=# BEGIN ISOLATION LEVEL REPEATABLE READ;
+UPDATE text_table SET text = (select id from text_table order by id desc limit 1 for update);
+COMMIT;
+BEGIN
+UPDATE 1000000
+COMMIT
+```
+
+Журнал блокировок
+
+```
+2024-10-24 09:10:48.530 MSK [25837] postgres@testlock СООБЩЕНИЕ:  процесс 25837 продолжает ожидать в режиме ShareLock блокировку "транзакция 761" в течение 200.782 мс
+2024-10-24 09:10:48.530 MSK [25837] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 25823. Wait queue: 25837.
+2024-10-24 09:10:48.530 MSK [25837] postgres@testlock КОНТЕКСТ:  при изменении кортежа (6944,1) в отношении "text_table"
+2024-10-24 09:10:48.530 MSK [25837] postgres@testlock ОПЕРАТОР:  UPDATE text_table SET text = (select id from text_table order by id desc limit 1 for update);
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock СООБЩЕНИЕ:  процесс 25823 обнаружил взаимоблокировку, ожидая в режиме ShareLock блокировку "транзакция 762" в течение 200.531 мс
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ПОДРОБНОСТИ:  Process holding the lock: 25837. Wait queue: .
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock КОНТЕКСТ:  при изменении кортежа (10834,179) в отношении "text_table"
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ОПЕРАТОР:  UPDATE text_table SET text= (select id from text_table order by id asc limit 1 for update);
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ОШИБКА:  обнаружена взаимоблокировка
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ПОДРОБНОСТИ:  Процесс 25823 ожидает в режиме ShareLock блокировку "транзакция 762"; заблокирован процессом 25837.
+        Процесс 25837 ожидает в режиме ShareLock блокировку "транзакция 761"; заблокирован процессом 25823.
+        Процесс 25823: UPDATE text_table SET text= (select id from text_table order by id asc limit 1 for update);
+        Процесс 25837: UPDATE text_table SET text = (select id from text_table order by id desc limit 1 for update);
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ПОДСКАЗКА:  Подробности запроса смотрите в протоколе сервера.
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock КОНТЕКСТ:  при изменении кортежа (10834,179) в отношении "text_table"
+2024-10-24 09:10:53.228 MSK [25823] postgres@testlock ОПЕРАТОР:  UPDATE text_table SET text= (select id from text_table order by id asc limit 1 for update);
+2024-10-24 09:10:53.228 MSK [25837] postgres@testlock СООБЩЕНИЕ:  процесс 25837 получил в режиме ShareLock блокировку "транзакция 761" через 4899.136 мс
+2024-10-24 09:10:53.228 MSK [25837] postgres@testlock КОНТЕКСТ:  при изменении кортежа (6944,1) в отношении "text_table"
+2024-10-24 09:10:53.228 MSK [25837] postgres@testlock ОПЕРАТОР:  UPDATE text_table SET text = (select id from text_table order by id desc limit 1 for update);
+```
+
+В данном случае мы пробуем забрать od для update в первом сеансе отсортированные по возрастанию, а во втором по убыванию. В тот момент когда запросы пересекаются возникает взаимная блокировка. В данном примере первым завершился запрос в перовм сеансе ROLLBACK, а дальше выполнился второй запрос.
