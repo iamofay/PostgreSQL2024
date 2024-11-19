@@ -371,6 +371,7 @@ tps = 1161.581572 (without initial connection time)
 
 - Добавим пользователя, создадим БД и наделим пользователя правами
 
+```
 postgres=# CREATE USER sbtest WITH PASSWORD 'password';
 CREATE ROLE
 postgres=# CREATE DATABASE sbtest;
@@ -379,6 +380,7 @@ postgres=# GRANT ALL PRIVILEGES ON DATABASE sbtest TO sbtest;
 GRANT
 postgres=# GRANT ALL PRIVILEGES ON SCHEMA public TO sbtest;
 GRANT
+```
 
 - Изменим hba конфиг
 
