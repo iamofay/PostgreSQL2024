@@ -242,4 +242,27 @@ SU9          |ANDREY YAKOVLEV|    28746|
 
 ####Задание со звездочкой* Придумайте 3 своих метрики на основе показанных представлений, отправьте их через ЛК, а так же поделитесь с коллегами в слаке
 
+Для начала включим pg_stat_statements
+
+![image](https://github.com/user-attachments/assets/03d6ddd7-e4ef-4d56-912c-18e90488c3ee)
+
+```
+demo=# CREATE EXTENSION
+pg_stat_statements;
+CREATE EXTENSION
+```
+
+1. Топ медленных запросов
+
+```
+select queryid,query, max_exec_time from pg_stat_statements order by max_exec_time desc limit 5 
+
+queryid             |query                                                                                                                                                                                                                                                          |max_exec_time     |
+--------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------+
+ 7117423270502629483|CREATE EXTENSION¶pg_stat_statements                                                                                                                                                                                                                            |         29.025038|
+  -97492435204688944|SELECT t.oid,t.*,c.relkind,format_type(nullif(t.typbasetype, $1), t.typtypmod) as base_type_name, d.description¶FROM pg_catalog.pg_type t¶LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=t.typelem ¶LEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid¶|         20.125992|
+  -97492435204688944|SELECT t.oid,t.*,c.relkind,format_type(nullif(t.typbasetype, $1), t.typtypmod) as base_type_name, d.description¶FROM pg_catalog.pg_type t¶LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=t.typelem ¶LEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid¶|10.510250000000001|
+-4075257336654298222|SELECT c.oid,c.*,d.description,pg_catalog.pg_get_expr(c.relpartbound, c.oid) as partition_expr,  pg_catalog.pg_get_partkeydef(c.oid) as partition_key ¶FROM pg_catalog.pg_class c¶LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid AND d.objsubid=|          6.618936|
+ 6763265310911875889|select c.oid,pg_catalog.pg_total_relation_size(c.oid) as total_rel_size,pg_catalog.pg_relation_size(c.oid) as rel_size¶FROM pg_class c¶WHERE c.relnamespace=$1                                                                                                 |          4.660519|
+```
 
