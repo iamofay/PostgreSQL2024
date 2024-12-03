@@ -265,4 +265,26 @@ queryid             |query                                                      
 -4075257336654298222|SELECT c.oid,c.*,d.description,pg_catalog.pg_get_expr(c.relpartbound, c.oid) as partition_expr,  pg_catalog.pg_get_partkeydef(c.oid) as partition_key ¶FROM pg_catalog.pg_class c¶LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid AND d.objsubid=|          6.618936|
  6763265310911875889|select c.oid,pg_catalog.pg_total_relation_size(c.oid) as total_rel_size,pg_catalog.pg_relation_size(c.oid) as rel_size¶FROM pg_class c¶WHERE c.relnamespace=$1                                                                                                 |          4.660519|
 ```
+2. Процессы, которые могут подвесить базу в скором времени
 
+```
+select
+EXTRACT(EPOCH FROM (now() - state_change)) as idle_seconds,
+pid
+from pg_stat_activity
+where state = 'idle' and EXTRACT(EPOCH FROM (now() - state_change)) > 60
+
+idle_seconds|pid|
+------------+---+
+```
+
+3. Топ самых востребованных таблиц, которые могут потребовать настройки автовакуума.
+
+```
+select n_mod_since_analyze + n_ins_since_vacuum / EXTRACT(EPOCH FROM (now() - last_autovacuum)), relname from pg_stat_user_tables
+where last_autovacuum is not null
+order by 1 desc
+
+?column?|relname|
+--------+-------+
+```
