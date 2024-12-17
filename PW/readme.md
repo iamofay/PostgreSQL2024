@@ -75,6 +75,14 @@ API version: 3.5
 etcdutl version: 3.5.17
 API version: 3.5
 
+daa@etcd1:~$ sudo nano /etc/systemd/system/etcd.service
+daa@etcd1:~$ etcd --version
+etcd Version: 3.5.17
+Git SHA: 507c0de
+Go Version: go1.22.9
+Go OS/Arch: linux/amd64
+
+
 Переместите двоичные файлы в свой PATH:
 
 sudo cp /tmp/etcd-download-test/etcd* /usr/local/bin
