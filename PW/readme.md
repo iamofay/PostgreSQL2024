@@ -162,8 +162,13 @@ lines 1-20/20 (END)
 
 На данный момент кластер запущен и работает. Чтобы убедиться в этом, используйте приведенную ниже команду и замените IP-адрес на IP-адрес любого сервера etcd.
 
+```
 daa@etcd1:~$ etcdctl --endpoints=http://192.168.1.106:2379 member list
 3bbfd6bd0acc17c6, started, etcd2, http://192.168.1.109:2380, http://192.168.1.109:2379, false
 559fadbf2c74b9f0, started, etcd3, http://192.168.1.110:2380, http://192.168.1.110:2379, false
 73079f127bc11ea8, started, etcd1, http://192.168.1.106:2380, http://192.168.1.106:2379, false
+```
+
+#### Postgresql+patroni
+
 
