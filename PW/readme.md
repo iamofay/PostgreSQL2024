@@ -41,7 +41,7 @@ rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
 /tmp/etcd-download-test/etcdctl --endpoints=localhost:2379 get foo
 
 Результаты установки:
-
+```
 daa@etcd1:~$ curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
 tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
 rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
@@ -81,7 +81,7 @@ etcd Version: 3.5.17
 Git SHA: 507c0de
 Go Version: go1.22.9
 Go OS/Arch: linux/amd64
-
+```
 
 Переместите двоичные файлы в свой PATH:
 
