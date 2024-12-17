@@ -171,4 +171,84 @@ daa@etcd1:~$ etcdctl --endpoints=http://192.168.1.106:2379 member list
 
 #### Postgresql+patroni
 
+Установим postgre 
+
+#### Утсановим некоторые пакеты
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo apt install dirmngr ca-certificates software-properties-common apt-transport-https lsb-release curl -y
+Чтение списков пакетов… Готово
+Построение дерева зависимостей… Готово
+Чтение информации о состоянии… Готово
+Уже установлен пакет dirmngr самой новой версии (2.4.4-2ubuntu17).
+dirmngr помечен как установленный вручную.
+Уже установлен пакет ca-certificates самой новой версии (20240203).
+Уже установлен пакет software-properties-common самой новой версии (0.99.48).
+software-properties-common помечен как установленный вручную.
+Уже установлен пакет lsb-release самой новой версии (12.0-2).
+lsb-release помечен как установленный вручную.
+Уже установлен пакет curl самой новой версии (8.5.0-2ubuntu10.4).
+Следующие НОВЫЕ пакеты будут установлены:
+  apt-transport-https
+Обновлено 0 пакетов, установлено 1 новых пакетов, для удаления отмечено 0 пакетов, и 5 пакетов не обновлено.
+Необходимо скачать 3 974 B архивов.
+После данной операции объём занятого дискового пространства возрастёт на 35,8 kB.
+Пол:1 http://ru.archive.ubuntu.com/ubuntu noble/universe amd64 apt-transport-https all 2.7.14build2 [3 974 B]
+Получено 3 974 B за 0с (35,9 kB/s)
+Выбор ранее не выбранного пакета apt-transport-https.
+(Чтение базы данных … на данный момент установлено 193307 файлов и каталогов.)
+Подготовка к распаковке …/apt-transport-https_2.7.14build2_all.deb …
+Распаковывается apt-transport-https (2.7.14build2) …
+Настраивается пакет apt-transport-https (2.7.14build2) …
+```
+
+#### Импортируем PostgreSQL GPG key для верификации установочного пакета
+
+```
+daa@daa-VMware-Virtual-Platform:~$ curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /usr/share/keyrings/postgresql.gpg > /dev/null
+```
+
+#### Импортируем APT репозиторий PostgreSQL и проапдейтим перечень репозиториев.
+
+```
+daa@daa-VMware-Virtual-Platform:~$ echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main | sudo tee /etc/apt/sources.list.d/postgresql.list
+deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main
+daa@daa-VMware-Virtual-Platform:~$ sudo apt update
+Сущ:1 http://ru.archive.ubuntu.com/ubuntu noble InRelease
+Сущ:2 http://ru.archive.ubuntu.com/ubuntu noble-updates InRelease
+Сущ:3 http://ru.archive.ubuntu.com/ubuntu noble-backports InRelease
+Сущ:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Пол:5 http://apt.postgresql.org/pub/repos/apt noble-pgdg InRelease [129 kB]
+Сущ:6 https://download.docker.com/linux/ubuntu noble InRelease
+Пол:7 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main ppc64el Packages [303 kB]
+Пол:8 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main arm64 Packages [294 kB]
+Пол:9 http://apt.postgresql.org/pub/repos/apt noble-pgdg/main amd64 Packages [306 kB]
+Получено 1 032 kB за 1с (751 kB/s)
+Чтение списков пакетов… Готово
+Построение дерева зависимостей… Готово
+Чтение информации о состоянии… Готово
+Может быть обновлено 11 пакетов. Запустите «apt list --upgradable» для их показа.
+```
+
+#### Устанавливаем PostgreSQL 15 и убедимся что кластер запущен
+
+```
+daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory              Log file
+15  main    5432 online postgres /var/lib/postgresql/15/main /var/log/postgresql/postgresql-15-main.log
+```
+
+Удалим каталог
+
+daa@patroni1:~$ sudo systemctl stop postgresql
+daa@patroni1:~$ sudo rm -fr /var/lib/postgresql/15/main
+
+Устанавливаеем patroni
+
+sudo apt update
+
+sudo apt install python3-pip python3-dev libpq-dev -y
+
+daa@patroni1:~$ sudo apt-get install patroni
+
 
