@@ -457,3 +457,43 @@ tags:
   clonefrom: false
   nosync: false
 ```
+
+Перезапустим кластера patroni
+
+```
+daa@patroni1:~$ sudo systemctl restart patroni
+```
+
+Перезапустим
+
+```
+daa@patroni1:~$ sudo systemctl status patroni
+● patroni.service - Runners to orchestrate a high-availability PostgreSQL
+     Loaded: loaded (/usr/lib/systemd/system/patroni.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2024-12-18 14:35:09 MSK; 9s ago
+   Main PID: 33819 (patroni)
+      Tasks: 13 (limit: 4558)
+     Memory: 164.0M (peak: 165.5M)
+        CPU: 697ms
+     CGroup: /system.slice/patroni.service
+             ├─33819 /usr/bin/python3 /usr/bin/patroni /etc/patroni/config.yml
+             ├─33835 /usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/15/main --config-file=/etc/postgresql/15/main/postgresql.conf --listen_addresses=192.168.1.111,127.0.0.1 --port=5432 --cluster_name=patroni-cluster --wal_level=replica --hot_standby=True --max_connections=20>
+             ├─33837 "postgres: patroni-cluster: logger "
+             ├─33838 "postgres: patroni-cluster: checkpointer "
+             ├─33839 "postgres: patroni-cluster: background writer "
+             ├─33840 "postgres: patroni-cluster: startup recovering 000000020000000000000005"
+             ├─33842 "postgres: patroni-cluster: walreceiver streaming 0/50001B8"
+             └─33847 "postgres: patroni-cluster: postgres postgres [local] idle"
+
+Dec 18 14:35:10 patroni1 patroni[33835]: 2024-12-18 14:35:10 MSK [33835-1]  LOG:  redirecting log output to logging collector process
+Dec 18 14:35:10 patroni1 patroni[33835]: 2024-12-18 14:35:10 MSK [33835-2]  HINT:  Future log output will appear in directory "/var/log/postgresql".
+Dec 18 14:35:11 patroni1 patroni[33843]: /var/run/postgresql:5432 - accepting connections
+Dec 18 14:35:11 patroni1 patroni[33845]: /var/run/postgresql:5432 - accepting connections
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,440 INFO: Lock owner: patroni2; I am patroni1
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,440 INFO: establishing a new patroni heartbeat connection to postgres
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,450 INFO: Local timeline=2 lsn=0/50001B8
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,470 INFO: primary_timeline=2
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,473 WARNING: Dropping physical replication slot patroni2 because of its xmin value 740
+Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,479 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+```
+
