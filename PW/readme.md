@@ -259,9 +259,44 @@ daa@patroni1:~$ sudo rm -fr /var/lib/postgresql/15/main
 
 Устанавливаеем patroni
 
+Установим python
+
+Шаг 5: Установка Patroni
+Установите Patroni и PIP на все узлы:
+sudo apt-get install python3-pip python3-dev libpq-dev -y
+sudo apt-get install patroni -y
+
+
+sudo apt install python3-venv
+Then create a virtual environment in your project directory like this:
+
+ python3 -m venv .venv
+Now activate your virtual environment by running:
+
+ source .venv/bin/activate
+
+ Установите зависимости для работы Patroni на все узлы:
+pip3 install psycopg2-binary
+pip3 install wheel
+pip3 install python-etcd
+
+(.venv) daa@patroni1:~$ deactivate
+
 sudo apt update
 
 sudo apt install python3-pip python3-dev libpq-dev -y
+
+Шаг 5: Установка Patroni
+Установите Patroni и PIP на все узлы:
+sudo apt-get install python3-pip python3-dev libpq-dev -y
+sudo apt-get install patroni -y
+
+Установите зависимости для работы Patroni на все узлы:
+pip3 install psycopg2-binary
+pip3 install wheel
+pip3 install python-etcd
+
+(.venv) daa@patroni1:~$ deactivate
 
 daa@patroni1:~$ sudo apt-get install patroni
 
