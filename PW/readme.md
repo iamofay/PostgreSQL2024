@@ -114,13 +114,19 @@ sudo nano /etc/default/etcd
 По аналогии на всех 3х нодах
 
 ```
+  GNU nano 7.2                                            /etc/default/etcd
 ETCD_NAME=etcd1
-##ETCD_DATA_DIR=/var/lib/etcd
+ETCD_DATA_DIR=/var/lib/etcd/default
 ETCD_INITIAL_CLUSTER=etcd1=http://192.168.1.106:2380,etcd2=http://192.168.1.109:2380,etcd3=http://192.168.1.110:2380
 ETCD_INITIAL_ADVERTISE_PEER_URLS=http://192.168.1.106:2380
 ETCD_ADVERTISE_CLIENT_URLS=http://192.168.1.106:2379
-ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
-ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+ETCD_LISTEN_PEER_URLS=http://192.168.1.106:2380
+ETCD_LISTEN_CLIENT_URLS=http://192.168.1.106:2379,http://localhost:2379
+ETCD_INITIAL_CLUSTER_TOKEN="devops_token"
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_ENABLE_V2="true"
+ETCD_HEARTBEAT_INTERVAL="1000"
+ETCD_ELECTION_TIMEOUT="5000"
 ```
 
 После внесения изменений на всех трех узлах запустите или перезапустите службу etcd с помощью команд:
@@ -163,10 +169,18 @@ lines 1-20/20 (END)
 На данный момент кластер запущен и работает. Чтобы убедиться в этом, используйте приведенную ниже команду и замените IP-адрес на IP-адрес любого сервера etcd.
 
 ```
-daa@etcd1:~$ etcdctl --endpoints=http://192.168.1.106:2379 member list
-3bbfd6bd0acc17c6, started, etcd2, http://192.168.1.109:2380, http://192.168.1.109:2379, false
-559fadbf2c74b9f0, started, etcd3, http://192.168.1.110:2380, http://192.168.1.110:2379, false
-73079f127bc11ea8, started, etcd1, http://192.168.1.106:2380, http://192.168.1.106:2379, false
+daa@etcd1:~$ sudo etcdctl member list
+2125f1467958dff8, started, etcd1, http://192.168.1.106:2380, http://192.168.1.106:2379, false
+265b9c61ffe85ba1, started, etcd3, http://192.168.1.110:2380, http://192.168.1.110:2379, false
+97ba8852ebaddf74, started, etcd2, http://192.168.1.109:2380, http://192.168.1.109:2379, false
+daa@etcd1:~$ etcdctl -w table endpoint --cluster status
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|         ENDPOINT          |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+| http://192.168.1.106:2379 | 2125f1467958dff8 |  3.5.17 |   20 kB |     false |      false |         3 |         10 |                 10 |        |
+| http://192.168.1.110:2379 | 265b9c61ffe85ba1 |  3.5.17 |   20 kB |      true |      false |         3 |         10 |                 10 |        |
+| http://192.168.1.109:2379 | 97ba8852ebaddf74 |  3.5.17 |   20 kB |     false |      false |         3 |         10 |                 10 |        |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
 ```
 
 #### Postgresql+patroni
