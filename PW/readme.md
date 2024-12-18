@@ -303,4 +303,157 @@ pip3 install python-etcd
 
 daa@patroni1:~$ sudo apt-get install patroni
 
+```
+daa@patroni1:~$ sudo nano /etc/patroni/config.yml
+```
 
+```
+  GNU nano 7.2                                         /etc/patroni/config.yml
+
+scope: patroni-cluster # одинаковое значение на всех узлах
+name: patroni1 # разное значение на всех узлах
+namespace: /service/ # одинаковое значение на всех узлах
+
+restapi:
+  listen: 192.168.1.111:8008 # адрес узла, на котором находится этот файл
+  connect_address: 192.168.1.111:8008 # адрес узла, на котором находится этот файл
+
+etcd:
+  hosts: 192.168.1.106:2379,192.168.1.109:2379,192.168.1.110:2379 # список всех узлов, на которых установлен etcd
+
+bootstrap:
+  method: initdb
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 300
+    synchronous_mode: false
+    synchronous_mode_strict: false
+    synchronous_node_count: 1
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        max_connections: 2000
+        superuser_reserved_connections: 5
+        max_locks_per_transaction: 64
+        max_prepared_transactions: 0
+        huge_pages: try
+        shared_buffers: 512MB
+        work_mem: 128MB
+        maintenance_work_mem: 256MB
+        effective_cache_size: 4GB
+        checkpoint_timeout: 15min
+        checkpoint_completion_target: 0.9
+        wal_compression: on
+        min_wal_size: 2GB
+        max_wal_size: 4GB
+        wal_buffers: 32MB
+        default_statistics_target: 1000
+        seq_page_cost: 1
+        random_page_cost: 4
+        effective_io_concurrency: 2
+        synchronous_commit: on
+        autovacuum: on
+        autovacuum_max_workers: 5
+        autovacuum_vacuum_scale_factor: 0.01
+        autovacuum_analyze_scale_factor: 0.02
+        autovacuum_vacuum_cost_limit: 200
+        autovacuum_vacuum_cost_delay: 20
+        autovacuum_naptime: 1s
+        max_files_per_process: 4096
+        archive_mode: on
+        archive_timeout: 1800s
+        archive_command: cd .
+        wal_level: replica
+        wal_keep_segments: 130
+        max_wal_senders: 10
+        max_replication_slots: 10
+        hot_standby: on
+        hot_standby_feedback: True
+        wal_log_hints: on
+        shared_preload_libraries: pg_stat_statements,auto_explain
+        pg_stat_statements.max: 10000
+        pg_stat_statements.track: all
+        pg_stat_statements.save: off
+        auto_explain.log_min_duration: 10s
+        auto_explain.log_analyze: true
+        auto_explain.log_buffers: true
+        auto_explain.log_timing: false
+        auto_explain.log_triggers: true
+        auto_explain.log_verbose: true
+        auto_explain.log_nested_statements: true
+        track_io_timing: on
+        log_lock_waits: on
+        log_temp_files: 3
+        track_activities: on
+        track_counts: on
+        track_functions: all
+        log_checkpoints: on
+        logging_collector: on
+        log_truncate_on_rotation: on
+        log_rotation_age: 1d
+        log_rotation_size: 0
+        log_line_prefix: '%t [%p-%l] %r %q%u@%d '
+        log_filename: 'postgresql-%a.log'
+        log_directory: /var/log/postgresql
+
+  initdb: # List options to be passed on to initdb
+    - encoding: UTF8
+    - locale: en_US.UTF-8
+    - data-checksums
+
+  pg_hba: # должен содержать адреса ВСЕХ машин, используемых в кластере
+    - local all postgres peer
+    - local all all peer
+    - host all all 0.0.0.0/0 md5
+    - host replication replicator localhost trust
+    - host replication replicator 192.168.1.0/24 md5
+
+
+postgresql:
+  listen: 192.168.1.111,127.0.0.1:5432 # адрес узла, на котором находится этот файл
+  connect_address: 192.168.1.111:5432 # адрес узла, на котором находится этот файл
+  use_unix_socket: true
+  data_dir: /var/lib/postgresql/15/main # каталог данных
+  bin_dir: /usr/lib/postgresql/15/bin
+  config_dir: /etc/postgresql/15/main
+  pgpass: /var/lib/postgresql/.pgpass_patroni
+  authentication:
+    replication:
+      username: replicator
+      password: QWEasd123
+    superuser:
+      username: postgres
+      password: QWEasd123
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+  pg_hba: # должен содержать адреса ВСЕХ машин, используемых в кластере
+    - local all postgres peer
+    - local all all peer
+    - host all all 0.0.0.0/0 md5
+    - host replication replicator localhost trust
+    - host replication replicator 192.168.1.0/24 md5
+
+  remove_data_directory_on_rewind_failure: false
+  remove_data_directory_on_diverged_timelines: false
+
+  create_replica_methods:
+    - basebackup
+  basebackup:
+    max-rate: '100M'
+    checkpoint: 'fast'
+
+watchdog:
+  mode: off # Allowed values: off, automatic, required
+  device: /dev/watchdog
+  safety_margin: 5
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+```
