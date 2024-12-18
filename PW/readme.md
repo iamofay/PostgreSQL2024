@@ -259,6 +259,9 @@ daa@patroni1:~$ sudo rm -fr /var/lib/postgresql/15/main
 
 Устанавливаеем patroni
 
+192.168.1.111 - patroni1
+192.168.1.112 - patroni2
+
 Установим python
 
 Шаг 5: Установка Patroni
