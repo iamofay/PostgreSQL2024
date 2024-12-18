@@ -308,11 +308,14 @@ daa@patroni1:~$ sudo nano /etc/patroni/config.yml
 ```
 
 ```
-  GNU nano 7.2                                         /etc/patroni/config.yml
-
-scope: patroni-cluster # одинаковое значение на всех узлах
+  scope: patroni-cluster # одинаковое значение на всех узлах
 name: patroni1 # разное значение на всех узлах
 namespace: /service/ # одинаковое значение на всех узлах
+log:
+  level: INFO
+  dir: /var/log/patroni
+  file_size: 50000000
+  file_num: 10
 
 restapi:
   listen: 192.168.1.111:8008 # адрес узла, на котором находится этот файл
@@ -324,14 +327,16 @@ etcd:
 bootstrap:
   method: initdb
   dcs:
+    failsafe_mode: true
     ttl: 30
     loop_wait: 10
     retry_timeout: 10
     maximum_lag_on_failover: 1048576
     master_start_timeout: 300
-    synchronous_mode: false
-    synchronous_mode_strict: false
+    synchronous_mode: true
+    synchronous_mode_strict: true
     synchronous_node_count: 1
+    master_start_timeout: 30
     postgresql:
       use_pg_rewind: true
       use_slots: true
@@ -456,6 +461,7 @@ tags:
   noloadbalance: false
   clonefrom: false
   nosync: false
+
 ```
 
 Перезапустим кластера patroni
