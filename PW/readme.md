@@ -676,3 +676,79 @@ demo=#
 Посмотрим результат в веб интерфейсе
 
 ![image](https://github.com/user-attachments/assets/6062cb65-d9b3-48dd-a847-c5a34a9817b2)
+
+Попробуем протестировать, то что у нас получилось, для тестирования будем использовать hatester
+
+```
+https://github.com/jobinau/pgscripts/blob/main/patroni/HAtester.py
+```
+
+Установим драйвер и скачаем скрипт
+
+```
+sudo apt-get install python3-psycopg2
+curl -LO https://raw.githubusercontent.com/jobinau/pgscripts/main/patroni/HAtester.py
+chmod +x HAtester.py
+```
+
+Отредактируем его конфигурацию
+
+```
+# CONNECTION DETAILS
+host = "192.168.1.115"
+dbname = "demo"
+user = "postgres"
+password = "QWEasd123"
+```
+
+Создадим в БД необходимую для тестов таблицу
+
+```
+CREATE TABLE HATEST (TM TIMESTAMP);
+```
+
+Запустим тестирование:
+
+На запись:
+
+```
+./HAtester.py 5000
+```
+
+```
+Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-23 13:49:09.030794
+
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-23 13:49:10.033195
+
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-23 13:49:11.036122
+
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-23 13:49:12.039146
+```
+
+На чтение:
+
+```
+./HAtester.py 5001
+```
+
+```
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-23 13:49:28.088576
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-23 13:49:29.091379
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-23 13:49:30.094587
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-23 13:49:31.097560
+```
+
+
+
+
