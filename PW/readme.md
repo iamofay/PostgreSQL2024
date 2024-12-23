@@ -619,5 +619,60 @@ You are now connected to database "demo" as user "postgres".
 demo=# \q
 ```
 
+#### Развернем haproxy
 
+Настроим виртуальный ip для кластера haproxy
 
+Изменим конфигурацию интерфейса на обеих нодах и добавим ip адрес 192.168.1.115 как кластерный к интерфейсам.
+
+```
+  GNU nano 7.2                   90-NM-14f59568-5076-387a-aef6-10adfcca2e26.yaml
+network:
+  version: 2
+  ethernets:
+    ens33:
+      renderer: NetworkManager
+      match: {}
+      addresses:
+      - "192.168.1.113/24"
+      - "192.168.1.115/24"
+      networkmanager:
+        uuid: "14f59568-5076-387a-aef6-10adfcca2e26"
+        name: "netplan-ens33"
+        passthrough:
+          connection.timestamp: "1734937357"
+          ipv4.address1: "192.168.1.113/24,192.168.1.1"
+          ipv4.method: "manual"
+          ipv6.method: "disabled"
+          ipv6.ip6-privacy: "-1"
+          proxy._: ""
+
+```
+
+Проверим подключение к БД через haproxy
+
+Подключение к мастеру
+
+```
+daa@haproxy1:~$ psql -h 192.168.1.115 -U postgres -d demo -p 5000
+Password for user postgres:
+psql (15.9 (Ubuntu 15.9-1.pgdg24.04+1), server 15.10 (Ubuntu 15.10-1.pgdg24.04+1))
+Type "help" for help.
+
+demo=#
+```
+
+Подключение к реплике
+
+```
+daa@haproxy2:/dev$ psql -h 192.168.1.115 -U postgres -d demo -p 5001
+Password for user postgres:
+psql (15.9 (Ubuntu 15.9-1.pgdg24.04+1), server 15.10 (Ubuntu 15.10-1.pgdg24.04+1))
+Type "help" for help.
+
+demo=#
+```
+
+Посмотрим результат в веб интерфейсе
+
+![image](https://github.com/user-attachments/assets/6062cb65-d9b3-48dd-a847-c5a34a9817b2)
