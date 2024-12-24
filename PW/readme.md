@@ -854,7 +854,191 @@ ion.HTTPConnection object at 0x73b31412b860>: Failed to establish a new connecti
 +----------+---------------+---------+-----------+----+-----------+
 ```
 
+Для операций чтения, произошла задержка в операциях, пока нода реплика не взяла на себя роль мастера.
+
+```
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 17:51:02.142796
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 17:51:02.142796
+
+ Working with:   MASTER - 192.168.1.111
+Trying to connect
+ Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-24 17:51:49.967949
+
+ Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-24 17:51:50.980466
+```
+
+Операции записи остановились, до момена запуска мастер ноды на реплике
+
+```
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-24 17:51:02.142796
+
+Trying to connect
+Unable to connect to database :
+connection to server at "192.168.1.115", port 5000 failed: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+
+daa@test1:~$ ./HAtester.py 5000
+ Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-24 17:52:04.977101
+
+ Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-24 17:52:05.980919
+```
 
 
+haproxу, видим сообщения о недоступности patroni2 и то как patroni1 становится мастером:
+
+```
+2024-12-24T17:28:54.113355+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_master/patroni2 is UP, reason: Layer7 check passed, code: 200, check duration: 1ms. 1 active and 0 backup servers online. 0 sessions requeued, 0 total in queue.
+2024-12-24T17:28:57.100660+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_replicas/patroni1 is UP, reason: Layer7 check passed, code: 200, check duration: 1ms. 2 active and 0 backup servers online. 0 sessions requeued, 0 total in queue.
+2024-12-24T17:29:33.146709+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_replicas/patroni2 is DOWN, reason: Layer4 timeout, check duration: 3003ms. 1 active and 0 backup servers left. 0 sessions active, 0 requeued, 0 remaining in queue.
+2024-12-24T17:29:35.176886+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_master/patroni2 is DOWN, reason: Layer4 timeout, check duration: 3004ms. 0 active and 0 backup servers left. 0 sessions active, 0 requeued, 0 remaining in queue.
+2024-12-24T17:29:35.176999+03:00 haproxy1 haproxy[1350]: [ALERT]    (1350) : proxy 'postgres_master' has no server available!
+2024-12-24T17:29:59.717682+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_master/patroni1 is UP, reason: Layer7 check passed, code: 200, check duration: 1ms. 1 active and 0 backup servers online. 0 sessions requeued, 0 total in queue.
+```
+
+![image](https://github.com/user-attachments/assets/a1f9793b-06b4-41c8-aba4-b1ddc4210eeb)
 
 
+patroni1, переключение в лидера:
+
+```
+daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
++ Cluster: patroni-cluster (7449702151863418585) --+-----------+
+| Member   | Host          | Role   | State   | TL | Lag in MB |
++----------+---------------+--------+---------+----+-----------+
+| patroni1 | 192.168.1.111 | Leader | running | 32 |           |
++----------+---------------+--------+---------+----+-----------+
+```
+
+```
+2024-12-24 17:29:11,784 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+2024-12-24 17:29:21,785 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+2024-12-24 17:29:32,294 INFO: Selected new etcd server http://192.168.1.110:2379
+2024-12-24 17:29:32,298 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+2024-12-24 17:29:42,292 INFO: Selected new etcd server http://192.168.1.109:2379
+2024-12-24 17:29:42,296 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+2024-12-24 17:29:54,095 WARNING: Request failed to patroni2: GET http://192.168.1.112:8008/patroni (HTTPConnectionPool(host='192.168.1.112', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x751251d1d280>, 'Connection to 192.168.1.112 timed out. (connect timeout=2)')))
+2024-12-24 17:29:54,101 INFO: promoted self to leader by acquiring session lock
+2024-12-24 17:29:55,175 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-24 17:30:05,167 INFO: Lock owner: patroni1; I am patroni1
+2024-12-24 17:30:05,170 INFO: Dropped unknown replication slot 'patroni2'
+2024-12-24 17:30:05,172 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-24 17:30:15,172 INFO: no action. I am (patroni1), the leader with the lock
+```
+
+Теперь включим ноду patroni2 обратно:
+
+```
+daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
++ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
+| Member   | Host          | Role    | State     | TL | Lag in MB |
++----------+---------------+---------+-----------+----+-----------+
+| patroni1 | 192.168.1.111 | Leader  | running   | 32 |           |
+| patroni2 | 192.168.1.112 | Replica | streaming | 32 |         0 |
++----------+---------------+---------+-----------+----+-----------+
+```
+
+haproxу, видим, что нода восстановилась уже как репилка:
+
+```
+2024-12-24T17:42:56.268815+03:00 haproxy1 haproxy[1350]: [WARNING]  (1350) : Server postgres_replicas/patroni2 is UP, reason: Layer7 check passed, code: 200, check duration: 1ms. 2 active and 0 backup servers online. 0 sessions requeued, 0 total in queue.
+```
+
+![image](https://github.com/user-attachments/assets/bdde159f-22b9-48ad-a2ae-606f157f3df0)
+
+По логам patroni2 видим весь процесс восстановления, в т.ч. запуск pg_rewind
+
+```
+2024-12-24 17:42:03,144 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:03,152 INFO: Local timeline=31 lsn=0/96000028
+2024-12-24 17:42:03,687 INFO: primary_timeline=32
+2024-12-24 17:42:03,687 INFO: primary: history=28       0/93000180      no recovery target specified
+29      0/940000A0      no recovery target specified
+30      0/950000A0      no recovery target specified
+31      0/950001B8      no recovery target specified
+2024-12-24 17:42:03,696 INFO: running pg_rewind from patroni1
+2024-12-24 17:42:03,731 INFO: running pg_rewind from dbname=postgres user=postgres host=192.168.1.111 port=5432 target_session_attrs=read-write
+2024-12-24 17:42:13,138 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:13,310 INFO: running pg_rewind from patroni1 in progress
+2024-12-24 17:42:23,138 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:23,140 INFO: running pg_rewind from patroni1 in progress
+2024-12-24 17:42:33,138 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:33,231 INFO: running pg_rewind from patroni1 in progress
+2024-12-24 17:42:43,138 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:43,197 INFO: running pg_rewind from patroni1 in progress
+2024-12-24 17:42:53,042 INFO: pg_rewind exit code=0
+2024-12-24 17:42:53,042 INFO:  stdout=
+2024-12-24 17:42:53,042 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/950001B8 on timeline 31
+pg_rewind: rewinding from last common checkpoint at 0/95000108 on timeline 31
+pg_rewind: Done!
+2024-12-24 17:42:53,044 WARNING: Postgresql is not running.
+2024-12-24 17:42:53,044 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:53,045 INFO: pg_controldata:
+  pg_control version number: 1300
+  Catalog version number: 202209061
+  Database system identifier: 7449702151863418585
+  Database cluster state: in archive recovery
+  pg_control last modified: Tue Dec 24 17:42:51 2024
+  Latest checkpoint location: 0/95000258
+  Latest checkpoint's REDO location: 0/950001E8
+  Latest checkpoint's REDO WAL file: 000000200000000000000095
+  Latest checkpoint's TimeLineID: 32
+  Latest checkpoint's PrevTimeLineID: 32
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:11973
+  Latest checkpoint's NextOID: 49201
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 717
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 11973
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Tue Dec 24 17:29:54 2024
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/95011DF0
+  Min recovery ending loc's timeline: 32
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 2000
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: f6dfe4464252d43f17386483dfdaf87961a5633d17ee3386e6e60a1504df09e8
+
+2024-12-24 17:42:53,046 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:53,048 INFO: starting as a secondary
+2024-12-24 17:42:53,265 INFO: postmaster pid=2892
+2024-12-24 17:42:54,299 INFO: Lock owner: patroni1; I am patroni2
+2024-12-24 17:42:54,299 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-24 17:42:54,450 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-24 17:42:55,066 INFO: establishing a new patroni restapi connection to postgres
+2024-12-24 17:42:55,183 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+```
