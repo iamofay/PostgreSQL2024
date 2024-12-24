@@ -109,6 +109,7 @@ WantedBy=multi-user.target
 Откройте файл для редактирования:
 
 sudo nano /etc/default/etcd
+
 Этот файл содержит все переменные среды для кластера. Нам нужно определить все переменные на всех трех узлах:
 
 По аналогии на всех 3х нодах
@@ -509,8 +510,8 @@ daa@patroni1:/var/log/postgresql$ sudo patronictl -c /etc/patroni/config.yml lis
 + Cluster: patroni-cluster (7449702151863418585) +----+-----------+
 | Member   | Host          | Role    | State     | TL | Lag in MB |
 +----------+---------------+---------+-----------+----+-----------+
-| patroni1 | 192.168.1.111 | Leader  | running   |  5 |           |
-| patroni2 | 192.168.1.112 | Replica | streaming |  5 |         0 |
+| patroni1 | 192.168.1.111 | Replica | streaming | 20 |         0 |
+| patroni2 | 192.168.1.112 | Leader  | running   | 20 |           |
 +----------+---------------+---------+-----------+----+-----------+
 ```
 
@@ -649,6 +650,8 @@ network:
 
 ```
 
+
+
 Проверим подключение к БД через haproxy
 
 Подключение к мастеру
@@ -751,24 +754,106 @@ Working with:   MASTER - 192.168.1.112
 
 Попробуем сценарии тестирования:
 
-1) Потеря сетевой связи
+1) Потеря сетевой связи с Replica
 
-Отключить ВМ реплики, на данный момент это patroni1
+Отключим сетевой интерфейс ВМ реплики, на данный момент это patroni1
 
 ```
 + Cluster: patroni-cluster (7449702151863418585) +----+-----------+
 | Member   | Host          | Role    | State     | TL | Lag in MB |
 +----------+---------------+---------+-----------+----+-----------+
-| patroni1 | 192.168.1.111 | Replica | streaming | 15 |         0 |
-| patroni2 | 192.168.1.112 | Leader  | running   | 15 |           |
+| patroni1 | 192.168.1.111 | Replica | streaming | 20 |         0 |
+| patroni2 | 192.168.1.112 | Leader  | running   | 20 |           |
 +----------+---------------+---------+-----------+----+-----------+
 ```
 
+Для операций чтения произошло автоматическое переключение на мастер ноду:
 
+```
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 14:56:17.111425
 
-Отключите сетевой кабель от одного из узлов (или смоделируйте это состояние в вашей виртуальной машине):
-Сначала из реплики
-Затем из первичной
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 14:56:18.115119
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 14:56:19.119822
+
+ Working with:    REPLICA - 192.168.1.111
+     Retrived: 2024-12-24 14:56:20.123431
+
+Trying to connect
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-24 14:56:35.042064
+
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-24 14:56:36.046823
+
+ Working with:   MASTER - 192.168.1.112
+     Inserted: 2024-12-24 14:56:37.050001
+```
+
+При этом в логах haproxy:
+
+```
+2024-12-24T14:56:33.970563+03:00 haproxy1 haproxy[2455]: [WARNING]  (2455) : Server postgres_replicas/patroni1 is DOWN, reason: Layer4 timeout, check duration: 3002ms. 1 active and 0 backup servers left. 1 sessions active, 0 requeued, 0 remaining in queue.
+```
+
+В patroni на второй ноде:
+
+```
+daa@patroni2:~$ sudo patronictl -c /etc/patroni/config.yml list
++ Cluster: patroni-cluster (7449702151863418585) --+-----------+
+| Member   | Host          | Role   | State   | TL | Lag in MB |
++----------+---------------+--------+---------+----+-----------+
+| patroni2 | 192.168.1.112 | Leader | running | 20 |           |
++----------+---------------+--------+---------+----+-----------+
+```
+
+Включим интерфейс обратно:
+
+haproxy:
+
+```
+2024-12-24T15:00:23.247611+03:00 haproxy1 haproxy[2455]: [WARNING]  (2455) : Server postgres_replicas/patroni1 is UP, reason: Layer7 check passed, code: 200, check duration: 1ms. 2 active and 0 backup servers online. 0 sessions requeued, 0 total in queue.
+```
+
+patroni2:
+
+```
+daa@patroni2:~$ sudo patronictl -c /etc/patroni/config.yml list
++ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
+| Member   | Host          | Role    | State     | TL | Lag in MB |
++----------+---------------+---------+-----------+----+-----------+
+| patroni1 | 192.168.1.111 | Replica | streaming | 20 |         0 |
+| patroni2 | 192.168.1.112 | Leader  | running   | 20 |           |
++----------+---------------+---------+-----------+----+-----------+
+```
+
+patroni1:
+
+```
+2024-12-24 15:00:21,403 ERROR: Failed to get list of machines from http://192.168.1.106:2379/v2: MaxRetryError("HTTPConnectionPo
+ol(host='192.168.1.106', port=2379): Max retries exceeded with url: /v2/machines (Caused by NewConnectionError('<urllib3.connect
+ion.HTTPConnection object at 0x73b31412b860>: Failed to establish a new connection: [Errno 101] Network is unreachable'))")
+2024-12-24 15:00:21,403 ERROR: Could not get the list of servers, maybe you provided the wrong host(s) to connect to?
+2024-12-24 15:00:22,426 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+2024-12-24 15:00:26,393 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
+```
+
+2) Потеря сетевой связанности с Master
+
+Отключим сетевой интерфейс ВМ мастера, на данный момент это patroni2
+
+```
++ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
+| Member   | Host          | Role    | State     | TL | Lag in MB |
++----------+---------------+---------+-----------+----+-----------+
+| patroni1 | 192.168.1.111 | Replica | streaming | 20 |         0 |
+| patroni2 | 192.168.1.112 | Leader  | running   | 20 |           |
++----------+---------------+---------+-----------+----+-----------+
+```
+
 
 
 
