@@ -1,46 +1,51 @@
-### Проектная работа. Создание и тестирование высоконагруженного отказоустойчивого кластера PostgreSQL на базе Patroni.
+### Дунай А.А. Проектная работа. Создание и тестирование высоконагруженного отказоустойчивого кластера PostgreSQL на базе Patroni.
 
-#### Подготовим кластер etcd
+Для начала определимся с перечнем компонентов системы и построим схему.
+В своей реализации я буду использовать 7 ВМ на базе Ubuntu:
 
-etcd1 192.168.1.106
-etcd2 192.168.1.109
-etcd3 192.168.1.110
+- etcd1 192.168.1.106
+- etcd2 192.168.1.109
+- etcd3 192.168.1.110
+- patroni1 192.168.1.111
+- patroni2 192.168.1.112 
+- haproxy1 192.168.1.113
+- haproxy1 192.168.1.114
+
+На которых будут рзмещены компоненты:
+
+- etcd
+- patroni
+- pgbouncer
+- haproxy
+- keepalive
+
+![otus postgresql](https://github.com/user-attachments/assets/d0d9a92e-f827-47c1-981c-5b2c0145bb09)
+
+#### 1. Начнем с подготовки кластера etcd
+
+- etcd1 192.168.1.106
+- etcd2 192.168.1.109
+- etcd3 192.168.1.110
+
+etcd — база данных для кластера patroni, критически важный компонент любого кластера. Он хранит в себе всю информацию, нужную для его стабильной работы. Основная задача — обеспечить консистентность данных и отказоустойчивость кластера. Если etcd запущен в нескольких репликах, будь то на отдельных машинах или машинах с Kubernetes, это обеспечит непрерывность работы кластера Kubernetes в случае сбоя отдельных нод etcd.
 
 ![image](https://github.com/user-attachments/assets/02174db7-6a00-40d2-9936-710762d7f82a)
 ![image](https://github.com/user-attachments/assets/b3339d60-a147-487c-adaf-e53ca34ee0ce)
 
-#### Установим etcd
+1. 1. Установим etcd
+  
+Используем репозиторий на github, установим версию v3.5.17
 
-https://github.com/etcd-io/etcd/releases/tag/v3.5.17
+[https://github.com/etcd-io/etcd/releases/tag/v3.5.17](https://github.com/etcd-io/etcd/releases/tag/v3.5.17) 
 
-   Установим версию v3.5.17
+Результаты установки:
 
-   ETCD_VER=v3.5.17
-
-# choose either URL
+```
 GOOGLE_URL=https://storage.googleapis.com/etcd
 GITHUB_URL=https://github.com/etcd-io/etcd/releases/download
 DOWNLOAD_URL=${GOOGLE_URL}
+```
 
-rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-rm -rf /tmp/etcd-download-test && mkdir -p /tmp/etcd-download-test
-
-curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
-rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-
-/tmp/etcd-download-test/etcd --version
-/tmp/etcd-download-test/etcdctl version
-/tmp/etcd-download-test/etcdutl version
-
-# start a local etcd server
-/tmp/etcd-download-test/etcd
-
-# write,read to etcd
-/tmp/etcd-download-test/etcdctl --endpoints=localhost:2379 put foo bar
-/tmp/etcd-download-test/etcdctl --endpoints=localhost:2379 get foo
-
-Результаты установки:
 ```
 daa@etcd1:~$ curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
 tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
@@ -83,14 +88,21 @@ Go Version: go1.22.9
 Go OS/Arch: linux/amd64
 ```
 
-####Переместите двоичные файлы в свой PATH:
+1. 2. Добавим в PATH:
 
+```
 sudo cp /tmp/etcd-download-test/etcd* /usr/local/bin
-Теперь создайте служебный файл:
+```
 
+Теперь создадим свой служебный файл:
+
+```
 sudo vim /etc/systemd/system/etcd.service
-Добавьте эти строки в файл:
+```
 
+И добавим в него следующую конфигурацию:
+
+```
 [Unit]
 Description=etcd
 
@@ -103,16 +115,17 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+```
 
-####Настроим кластер:
+1. 3. Настроим кластер:
 
-Откройте файл для редактирования:
+Откройте конфигурационный файл для редактирования:
 
+```
 sudo nano /etc/default/etcd
+```
 
-Этот файл содержит все переменные среды для кластера. Нам нужно определить все переменные на всех трех узлах:
-
-По аналогии на всех 3х нодах
+Этот файл содержит все переменные среды для кластера. Нам нужно определить все переменные на всех трех узлах по аналогии:
 
 ```
   GNU nano 7.2                                            /etc/default/etcd
@@ -130,17 +143,41 @@ ETCD_HEARTBEAT_INTERVAL="1000"
 ETCD_ELECTION_TIMEOUT="5000"
 ```
 
-После внесения изменений на всех трех узлах запустите или перезапустите службу etcd с помощью команд:
+Рассмотрим введённые параметры:
 
+   ETCD_NAME — имя этого узла кластера. Должно быть уникально в кластере;
+   ETCD_LISTEN_CLIENT_URLS — точка подключения для клиентов кластера;
+   ETCD_ADVERTISE_CLIENT_URLS — список URL-адресов, по которым его могут найти остальные узлы кластера;
+   ETCD_LISTEN_PEER_URLS — точка подключения для остальных узлов кластера;
+   ETCD_INITIAL_ADVERTISE_PEER_URLS — начальный список URL-адресов, по которым его могут найти остальные узлы кластера;
+   ETCD_INITIAL_CLUSTER_TOKEN — токен кластера, должен совпадать на всех узлах кластера;
+   ETCD_INITIAL_CLUSTER — список узлов кластера на момент запуска;
+   ETCD_INITIAL_CLUSTER_STATE — может принимать два значения: new и existing;
+   ETCD_DATA_DIR — расположение каталога данных кластера;
+   ETCD_ELECTION_TIMEOUT — время в миллисекундах, которое проходит между последним принятым оповещением от лидера кластера, до попытки захватить роль лидера на ведомом узле;
+   ETCD_HEARTBEAT_INTERVAL — время в миллисекундах, между рассылками лидером оповещений о том, что он всё ещё лидер.
+   ETCD_CERT_FILE — путь до файла сертификата сервера;
+   ETCD_KEY_FILE — путь до файла закрытого ключа;
+   ETCD_TRUSTED_CA_FILE — путь до файла корневого CA;
+   ETCD_CLIENT_CERT_AUTH — может принимать два значения: true и false;
+   ETCD_PEER_CERT_FILE — путь до файла сертификата сервера;
+   ETCD_PEER_KEY_FILE — путь до файла закрытого ключа;
+   ETCD_PEER_TRUSTED_CA_FILE — путь до файла корневого CA;
+   ETCD_PEER_CLIENT_CERT_AUTH — может принимать два значения: true и false;
+
+После внесения изменений на всех трех узлах запустим службу etcd с помощью команд:
+
+```
 sudo systemctl daemon-reload
 sudo systemctl enable --now etcd
+```
+Или рестарт
 
-##To Restart, Use:
+```
 sudo systemctl restart etcd
+```
 
-Убедимся, что служба работает на всех узлах:
-
-$ systemctl status etcd
+1. 4. Убедимся, что служба работает на всех узлах:
 
 ```
 daa@etcd1:~$ systemctl status etcd
@@ -184,11 +221,16 @@ daa@etcd1:~$ etcdctl -w table endpoint --cluster status
 +---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
 ```
 
-#### Postgresql+patroni
+#### 2. Теперь приступим к развертыванию Postgresql+patroni
 
-Установим postgre 
+- patroni1 192.168.1.111
+- patroni2 192.168.1.112
 
-#### Утсановим некоторые пакеты
+Основной задачей Patroni является обеспечение надежного переключения роли ведущего узла на резервный узел. Для максимальной доступности СУБД в кластере Patroni необходимо хранить и при необходимости изменять информацию о роли узлов. Для этого используется DCS, которое реализуется с помощью etcd или consul. DCS представляет собой распределенное хранилище конфигурации ключ/значение. В нашем случае кластер ETCD.
+
+2. 1. Установим postgre (информация взята из примеров ДЗ, в проектной работе выполнено по аналогии)
+
+Утсановим некоторые пакеты
 
 ```
 daa@daa-VMware-Virtual-Platform:~$ sudo apt install dirmngr ca-certificates software-properties-common apt-transport-https lsb-release curl -y
@@ -217,13 +259,13 @@ lsb-release помечен как установленный вручную.
 Настраивается пакет apt-transport-https (2.7.14build2) …
 ```
 
-#### Импортируем PostgreSQL GPG key для верификации установочного пакета
+Импортируем PostgreSQL GPG key для верификации установочного пакета
 
 ```
 daa@daa-VMware-Virtual-Platform:~$ curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /usr/share/keyrings/postgresql.gpg > /dev/null
 ```
 
-#### Импортируем APT репозиторий PostgreSQL и проапдейтим перечень репозиториев.
+Импортируем APT репозиторий PostgreSQL и проапдейтим перечень репозиториев.
 
 ```
 daa@daa-VMware-Virtual-Platform:~$ echo deb [arch=amd64,arm64,ppc64el signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main | sudo tee /etc/apt/sources.list.d/postgresql.list
@@ -245,7 +287,7 @@ daa@daa-VMware-Virtual-Platform:~$ sudo apt update
 Может быть обновлено 11 пакетов. Запустите «apt list --upgradable» для их показа.
 ```
 
-#### Устанавливаем PostgreSQL 15 и убедимся что кластер запущен
+Устанавливаем PostgreSQL 15 и убедимся что кластер запущен
 
 ```
 daa@daa-VMware-Virtual-Platform:~$ sudo -u postgres pg_lsclusters
@@ -253,60 +295,69 @@ Ver Cluster Port Status Owner    Data directory              Log file
 15  main    5432 online postgres /var/lib/postgresql/15/main /var/log/postgresql/postgresql-15-main.log
 ```
 
-Удалим каталог
+Создадим новую роль replicator с паролем ReplicatorPassword для работы с репликами. Должно совпадать с настройками Patroni из блока postgresql - authentication - replication и списком разрешённых хостов postgresql в файле pg_hba.conf:
 
+```
+daa@patroni1:~$ sudo -u postgres psql -c \
+"CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'QWEasd123';"
+```
+
+Установим пароль для пользователя postgres:
+
+```
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'QWEasd123';"
+```
+
+2. 2. Приступим к дальнейшей подготовке patroni
+
+Для начала нам нужно остановить службу и удалить каталог с данными:
+
+```
 daa@patroni1:~$ sudo systemctl stop postgresql
 daa@patroni1:~$ sudo rm -fr /var/lib/postgresql/15/main
+```
 
-Устанавливаеем patroni
+Установим python и patroni:
 
-192.168.1.111 - patroni1
-192.168.1.112 - patroni2
+```
+daa@patroni1:~$ sudo apt-get install python3-pip python3-dev libpq-dev -y
+daa@patroni1:~$ sudo apt-get install patroni -y
+```
 
-Установим python
+Создадим виртуальную среду для установки необходимых пакетов через pip
 
-Шаг 5: Установка Patroni
-Установите Patroni и PIP на все узлы:
-sudo apt-get install python3-pip python3-dev libpq-dev -y
-sudo apt-get install patroni -y
+```
+daa@patroni1:~$ sudo apt install python3-venv
+daa@patroni1:~$ python3 -m venv .venv
+```
 
+Активируем созданную виртуальную среду
 
-sudo apt install python3-venv
-Then create a virtual environment in your project directory like this:
+```
+daa@patroni1:~$ source .venv/bin/activate
+```
 
- python3 -m venv .venv
-Now activate your virtual environment by running:
+Установите зависимости для работы Patroni:
 
- source .venv/bin/activate
+```
+(.venv) daa@patroni1:~$ pip3 install psycopg2-binary
+(.venv) daa@patroni1:~$ pip3 install wheel
+(.venv) daa@patroni1:~$ pip3 install python-etcd
+```
 
- Установите зависимости для работы Patroni на все узлы:
-pip3 install psycopg2-binary
-pip3 install wheel
-pip3 install python-etcd
+Для выхода из виртуальной среды:
 
+```
 (.venv) daa@patroni1:~$ deactivate
+```
 
-sudo apt update
-
-sudo apt install python3-pip python3-dev libpq-dev -y
-
-Шаг 5: Установка Patroni
-Установите Patroni и PIP на все узлы:
-sudo apt-get install python3-pip python3-dev libpq-dev -y
-sudo apt-get install patroni -y
-
-Установите зависимости для работы Patroni на все узлы:
-pip3 install psycopg2-binary
-pip3 install wheel
-pip3 install python-etcd
-
-(.venv) daa@patroni1:~$ deactivate
-
-daa@patroni1:~$ sudo apt-get install patroni
+2. 3. Теперь настроим конфигурацию patroni
 
 ```
 daa@patroni1:~$ sudo nano /etc/patroni/config.yml
 ```
+
+В конфиге указываются все необходимые параметры для развертывания кластера в т.ч. точки etcd, параметры работы кластера БД, параметры failover, настройки доступа к БД и т.д.
 
 ```
 scope: patroni-cluster # одинаковое значение на всех узлах
@@ -412,7 +463,7 @@ bootstrap:
     - data-checksums
 
   pg_hba: # должен содержать адреса ВСЕХ машин, используемых в кластере
-    - local all postgres peer
+    - local all postgres md5
     - local all all peer
     - host all all 0.0.0.0/0 md5
     - host replication replicator localhost trust
@@ -420,7 +471,7 @@ bootstrap:
 
 
 postgresql:
-  listen: 192.168.1.111,127.0.0.1:5432 # адрес узла, на котором находится этот файл
+  listen: 192.168.1.111:5432 # адрес узла, на котором находится этот файл
   connect_address: 192.168.1.111:5432 # адрес узла, на котором находится этот файл
   use_unix_socket: true
   data_dir: /var/lib/postgresql/15/main # каталог данных
@@ -429,7 +480,7 @@ postgresql:
   pgpass: /var/lib/postgresql/.pgpass_patroni
   authentication:
     replication:
-      username: replicator
+      username: postgres
       password: QWEasd123
     superuser:
       username: postgres
@@ -437,7 +488,7 @@ postgresql:
   parameters:
     unix_socket_directories: /var/run/postgresql
   pg_hba: # должен содержать адреса ВСЕХ машин, используемых в кластере
-    - local all postgres peer
+    - local all postgres md5
     - local all all peer
     - host all all 0.0.0.0/0 md5
     - host replication replicator localhost trust
@@ -452,8 +503,8 @@ postgresql:
     max-rate: '100M'
     checkpoint: 'fast'
 
-watchdog:
-  mode: off # Allowed values: off, automatic, required
+watchdog: 
+  mode: off #Не используем, поэтому отключен
   device: /dev/watchdog
   safety_margin: 5
 
@@ -462,16 +513,22 @@ tags:
   noloadbalance: false
   clonefrom: false
   nosync: false
-
 ```
 
-Перезапустим кластера patroni
+Сделаем пользователя postgres владельцем каталога настроек:
 
 ```
-daa@patroni1:~$ sudo systemctl restart patroni
+daa@patroni1:~$ sudo chown postgres:postgres -R /etc/patroni
+daa@patroni1:~$ sudo chmod 700 /etc/patroni
 ```
 
-Перезапустим
+2. 4. Запустим кластер patroni:
+
+```
+daa@patroni1:~$ sudo systemctl start patroni
+```
+
+Проверим статус службы:
 
 ```
 daa@patroni1:~$ sudo systemctl status patroni
@@ -503,7 +560,8 @@ Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,470 INFO: primary_t
 Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,473 WARNING: Dropping physical replication slot patroni2 because of its xmin value 740
 Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,479 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
 ```
-Кластер поднялся
+
+И проверим статус кластера:
 
 ```
 daa@patroni1:/var/log/postgresql$ sudo patronictl -c /etc/patroni/config.yml list
@@ -515,25 +573,30 @@ daa@patroni1:/var/log/postgresql$ sudo patronictl -c /etc/patroni/config.yml lis
 +----------+---------------+---------+-----------+----+-----------+
 ```
 
-Развернем демо БД
+Развернем демо БД (в соответствии с описанием в документации), просто для тестов
 
-sudo psql -f demo_big.sql -U postgres
+```
+daa@patroni1:~$ sudo psql -f demo_big.sql -U postgres
+```
 
+#### 3. Установим pgbouncer на обе ноды
 
+PGBouncer — программа, управляющая пулом соединений PostgreSQL. Любое конечное приложение может подключиться к PGBouncer, как если бы это был непосредственно сервер PostgreSQL. PGBouncer создаст подключение к реальному серверу, либо задействует одно из ранее установленных подключений.
 
-
-#### Установим pgbouncer на обе ноды
+Назначение PGBouncer — минимизировать издержки, связанные с установлением новых подключений к PostgreSQL.
 
 ```
 daa@patroni1:~$ sudo apt-get install pgbouncer -y
 ```
 
 Переместите конфигурационный файл по умолчанию:
+
 ```
 daa@patroni1:/etc$ sudo mv /etc/pgbouncer/pgbouncer.ini{,.original}
 ```
 
-Создайте и откройте для редактирования новый конфигурационный файл:
+Создадим и отредактируем конфигурационный файл. :
+
 ```
 sudo nano /etc/pgbouncer/pgbouncer.ini
 ```
@@ -541,8 +604,7 @@ sudo nano /etc/pgbouncer/pgbouncer.ini
 ```
   GNU nano 7.2                                      /etc/pgbouncer/pgbouncer.ini
 [databases]
-postgres = host=127.0.0.1 port=5432 dbname=demo
-* = host=127.0.0.1 port=5432
+* = host=192.168.1.111,192.168.1.112 port=5432
 
 [pgbouncer]
 logfile = /var/log/postgresql/pgbouncer.log
@@ -567,11 +629,25 @@ log_connections = 0
 log_disconnections = 0
 ```
 
-Добавим пользователя 
+Параметры конфига:
+
+   listen_addr — список адресов через запятую, где прослушивать соединения TCP. Если вы установите *, будут прослушивать все адреса;
+   listen_port — порт для прослушивания, по умолчанию установлено 6432;
+   pool_mode — режим работы;
+   auth_type — режим аутентификации пользователей;
+   max_client_conn — максимально допустимое количество клиентских подключений;
+   default_pool_size — размер пула открытых подключений к базам данных;
+   reserve_pool_size — размер резервного пула открытых подключений к базам данных;
+   max_db_connections — максимально допустимое количество открытых подключений к базам данных;
+   [databases] — определяет имена баз данных, к которым могут подключаться клиенты PgBouncer. Указывает, куда будут маршрутизироваться эти подключения.
+
+Добавим в файл /etc/pgbouncer/userlist.txt имена пользователей и пароли, с которыми PGBouncer подключается к базе: 
 
 ```
 daa@patroni1:/etc$  sudo nano /etc/pgbouncer/userlist.txt
 ```
+
+В нашем случае это пользователь postgres
 
 ```
  GNU nano 7.2                                       /etc/pgbouncer/userlist.txt
@@ -579,8 +655,11 @@ daa@patroni1:/etc$  sudo nano /etc/pgbouncer/userlist.txt
 ```
 
 Перезапустите PGBouncer, выполнив команду:
-sudo systemctl daemon-reload
-sudo systemctl restart pgbouncer
+
+```
+daa@patroni1:/etc$  sudo systemctl daemon-reload
+daa@patroni1:/etc$  sudo systemctl restart pgbouncer
+```
 
 Проверим статус 
 
@@ -607,7 +686,7 @@ Dec 19 05:20:10 patroni1 pgbouncer[137160]: process up: PgBouncer 1.23.1, libeve
 Dec 19 05:20:10 patroni1 systemd[1]: Started pgbouncer.service - connection pooler for PostgreSQL.
 ```
 
-Подключимся к БД
+Проверим подключение к БД через pgbouncer
 
 ```
 daa@patroni1:/etc$ psql -p 6432 -U postgres
@@ -620,11 +699,18 @@ You are now connected to database "demo" as user "postgres".
 demo=# \q
 ```
 
-#### Развернем haproxy
+#### 4. Развернем haproxy+keepalived
 
-Настроим виртуальный ip для кластера haproxy
+- haproxy1 192.168.1.113
+- haproxy1 192.168.1.114
 
-Изменим конфигурацию интерфейса на обеих нодах и добавим ip адрес 192.168.1.115 как кластерный к интерфейсам.
+HAProxy — инструмент обеспечения высокой доступности и балансировки нагрузки. 
+Keepalived — программный инструмент, предназначенный для обеспечения высокой доступности и отказоустойчивости сетевых сервисов. 
+VIP (Virtual IP Address) — это виртуальный IP-адрес, который не привязан к какому-то конкретному физическому интерфейсу. VIP может быть использован для того, чтобы обеспечить доступ к сервису, который работает на нескольких серверах (например, в кластере, как в нашем случае).
+
+Настроим VIP для кластера haproxy
+
+Изменим конфигурацию интерфейса на обеих нодах и добавим ip адрес 192.168.1.115 к интерфейсам.
 
 ```
   GNU nano 7.2                   90-NM-14f59568-5076-387a-aef6-10adfcca2e26.yaml
@@ -1042,3 +1128,5 @@ pg_rewind: Done!
 2024-12-24 17:42:55,066 INFO: establishing a new patroni restapi connection to postgres
 2024-12-24 17:42:55,183 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
 ```
+
+3) Теперь попробуем сценарий остановки patroni с включенным postgresql на мастер ноде
