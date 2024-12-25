@@ -145,25 +145,25 @@ ETCD_ELECTION_TIMEOUT="5000"
 
 Рассмотрим введённые параметры:
 
-   ETCD_NAME — имя этого узла кластера. Должно быть уникально в кластере;
-   ETCD_LISTEN_CLIENT_URLS — точка подключения для клиентов кластера;
-   ETCD_ADVERTISE_CLIENT_URLS — список URL-адресов, по которым его могут найти остальные узлы кластера;
-   ETCD_LISTEN_PEER_URLS — точка подключения для остальных узлов кластера;
-   ETCD_INITIAL_ADVERTISE_PEER_URLS — начальный список URL-адресов, по которым его могут найти остальные узлы кластера;
-   ETCD_INITIAL_CLUSTER_TOKEN — токен кластера, должен совпадать на всех узлах кластера;
-   ETCD_INITIAL_CLUSTER — список узлов кластера на момент запуска;
-   ETCD_INITIAL_CLUSTER_STATE — может принимать два значения: new и existing;
-   ETCD_DATA_DIR — расположение каталога данных кластера;
-   ETCD_ELECTION_TIMEOUT — время в миллисекундах, которое проходит между последним принятым оповещением от лидера кластера, до попытки захватить роль лидера на ведомом узле;
-   ETCD_HEARTBEAT_INTERVAL — время в миллисекундах, между рассылками лидером оповещений о том, что он всё ещё лидер.
-   ETCD_CERT_FILE — путь до файла сертификата сервера;
-   ETCD_KEY_FILE — путь до файла закрытого ключа;
-   ETCD_TRUSTED_CA_FILE — путь до файла корневого CA;
-   ETCD_CLIENT_CERT_AUTH — может принимать два значения: true и false;
-   ETCD_PEER_CERT_FILE — путь до файла сертификата сервера;
-   ETCD_PEER_KEY_FILE — путь до файла закрытого ключа;
-   ETCD_PEER_TRUSTED_CA_FILE — путь до файла корневого CA;
-   ETCD_PEER_CLIENT_CERT_AUTH — может принимать два значения: true и false;
+   - ETCD_NAME — имя этого узла кластера. Должно быть уникально в кластере;
+   - ETCD_LISTEN_CLIENT_URLS — точка подключения для клиентов кластера;
+   - ETCD_ADVERTISE_CLIENT_URLS — список URL-адресов, по которым его могут найти остальные узлы кластера;
+   - ETCD_LISTEN_PEER_URLS — точка подключения для остальных узлов кластера;
+   - ETCD_INITIAL_ADVERTISE_PEER_URLS — начальный список URL-адресов, по которым его могут найти остальные узлы кластера;
+   - ETCD_INITIAL_CLUSTER_TOKEN — токен кластера, должен совпадать на всех узлах кластера;
+   - ETCD_INITIAL_CLUSTER — список узлов кластера на момент запуска;
+   - ETCD_INITIAL_CLUSTER_STATE — может принимать два значения: new и existing;
+   - ETCD_DATA_DIR — расположение каталога данных кластера;
+   - ETCD_ELECTION_TIMEOUT — время в миллисекундах, которое проходит между последним принятым оповещением от лидера кластера, до попытки захватить роль лидера на ведомом узле;
+   - ETCD_HEARTBEAT_INTERVAL — время в миллисекундах, между рассылками лидером оповещений о том, что он всё ещё лидер.
+   - ETCD_CERT_FILE — путь до файла сертификата сервера;
+   - ETCD_KEY_FILE — путь до файла закрытого ключа;
+   - ETCD_TRUSTED_CA_FILE — путь до файла корневого CA;
+   - ETCD_CLIENT_CERT_AUTH — может принимать два значения: true и false;
+   - ETCD_PEER_CERT_FILE — путь до файла сертификата сервера;
+   - ETCD_PEER_KEY_FILE — путь до файла закрытого ключа;
+   - ETCD_PEER_TRUSTED_CA_FILE — путь до файла корневого CA;
+   - ETCD_PEER_CLIENT_CERT_AUTH — может принимать два значения: true и false;
 
 После внесения изменений на всех трех узлах запустим службу etcd с помощью команд:
 
@@ -632,15 +632,15 @@ log_disconnections = 0
 
 Параметры конфига:
 
-   listen_addr — список адресов через запятую, где прослушивать соединения TCP. Если вы установите *, будут прослушивать все адреса;
-   listen_port — порт для прослушивания, по умолчанию установлено 6432;
-   pool_mode — режим работы;
-   auth_type — режим аутентификации пользователей;
-   max_client_conn — максимально допустимое количество клиентских подключений;
-   default_pool_size — размер пула открытых подключений к базам данных;
-   reserve_pool_size — размер резервного пула открытых подключений к базам данных;
-   max_db_connections — максимально допустимое количество открытых подключений к базам данных;
-   [databases] — определяет имена баз данных, к которым могут подключаться клиенты PgBouncer. Указывает, куда будут маршрутизироваться эти подключения.
+   - listen_addr — список адресов через запятую, где прослушивать соединения TCP. Если вы установите *, будут прослушивать все адреса;
+   - listen_port — порт для прослушивания, по умолчанию установлено 6432;
+   - pool_mode — режим работы;
+   - auth_type — режим аутентификации пользователей;
+   - max_client_conn — максимально допустимое количество клиентских подключений;
+   - default_pool_size — размер пула открытых подключений к базам данных;
+   - reserve_pool_size — размер резервного пула открытых подключений к базам данных;
+   - max_db_connections — максимально допустимое количество открытых подключений к базам данных;
+   - [databases] — определяет имена баз данных, к которым могут подключаться клиенты PgBouncer. Указывает, куда будут маршрутизироваться эти подключения.
 
 Добавим в файл /etc/pgbouncer/userlist.txt имена пользователей и пароли, с которыми PGBouncer подключается к базе: 
 
@@ -1308,60 +1308,51 @@ haproxу, видим, что нода восстановилась уже как
 
 ![image](https://github.com/user-attachments/assets/bdde159f-22b9-48ad-a2ae-606f157f3df0)
 
-По логам patroni2 видим весь процесс восстановления, в т.ч. запуск pg_rewind
+По логам patroni2 видим весь процесс восстановления, в т.ч. запуск pg_rewind и выбор etcd сервера
 
 ```
-2024-12-24 17:42:03,144 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:03,152 INFO: Local timeline=31 lsn=0/96000028
-2024-12-24 17:42:03,687 INFO: primary_timeline=32
-2024-12-24 17:42:03,687 INFO: primary: history=28       0/93000180      no recovery target specified
-29      0/940000A0      no recovery target specified
-30      0/950000A0      no recovery target specified
-31      0/950001B8      no recovery target specified
-2024-12-24 17:42:03,696 INFO: running pg_rewind from patroni1
-2024-12-24 17:42:03,731 INFO: running pg_rewind from dbname=postgres user=postgres host=192.168.1.111 port=5432 target_session_attrs=read-write
-2024-12-24 17:42:13,138 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:13,310 INFO: running pg_rewind from patroni1 in progress
-2024-12-24 17:42:23,138 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:23,140 INFO: running pg_rewind from patroni1 in progress
-2024-12-24 17:42:33,138 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:33,231 INFO: running pg_rewind from patroni1 in progress
-2024-12-24 17:42:43,138 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:43,197 INFO: running pg_rewind from patroni1 in progress
-2024-12-24 17:42:53,042 INFO: pg_rewind exit code=0
-2024-12-24 17:42:53,042 INFO:  stdout=
-2024-12-24 17:42:53,042 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/950001B8 on timeline 31
-pg_rewind: rewinding from last common checkpoint at 0/95000108 on timeline 31
-pg_rewind: Done!
-2024-12-24 17:42:53,044 WARNING: Postgresql is not running.
-2024-12-24 17:42:53,044 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:53,045 INFO: pg_controldata:
+2024-12-25 23:10:59,342 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:10:59,342 INFO: starting as a secondary
+2024-12-25 23:11:00,623 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:01,385 INFO: postmaster pid=50285
+2024-12-25 23:11:01,478 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:01,654 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:01,655 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:02,584 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:11:02,584 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:03,008 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:03,626 INFO: establishing a new patroni restapi connection to postgres
+2024-12-25 23:11:05,099 INFO: Selected new etcd server http://192.168.1.110:2379
+2024-12-25 23:11:05,169 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2024-12-25 23:11:05,175 WARNING: Postgresql is not running.
+2024-12-25 23:11:05,175 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:11:05,176 INFO: pg_controldata:
   pg_control version number: 1300
   Catalog version number: 202209061
   Database system identifier: 7449702151863418585
-  Database cluster state: in archive recovery
-  pg_control last modified: Tue Dec 24 17:42:51 2024
-  Latest checkpoint location: 0/95000258
-  Latest checkpoint's REDO location: 0/950001E8
-  Latest checkpoint's REDO WAL file: 000000200000000000000095
-  Latest checkpoint's TimeLineID: 32
-  Latest checkpoint's PrevTimeLineID: 32
+  Database cluster state: shut down in recovery
+  pg_control last modified: Wed Dec 25 23:11:04 2024
+  Latest checkpoint location: 0/A9000220
+  Latest checkpoint's REDO location: 0/A90001E8
+  Latest checkpoint's REDO WAL file: 0000002E00000000000000A9
+  Latest checkpoint's TimeLineID: 46
+  Latest checkpoint's PrevTimeLineID: 46
   Latest checkpoint's full_page_writes: on
-  Latest checkpoint's NextXID: 0:11973
-  Latest checkpoint's NextOID: 49201
+  Latest checkpoint's NextXID: 0:29806
+  Latest checkpoint's NextOID: 49243
   Latest checkpoint's NextMultiXactId: 1
   Latest checkpoint's NextMultiOffset: 0
   Latest checkpoint's oldestXID: 717
   Latest checkpoint's oldestXID's DB: 1
-  Latest checkpoint's oldestActiveXID: 11973
+  Latest checkpoint's oldestActiveXID: 29806
   Latest checkpoint's oldestMultiXid: 1
   Latest checkpoint's oldestMulti's DB: 1
   Latest checkpoint's oldestCommitTsXid: 0
   Latest checkpoint's newestCommitTsXid: 0
-  Time of latest checkpoint: Tue Dec 24 17:29:54 2024
+  Time of latest checkpoint: Wed Dec 25 23:04:03 2024
   Fake LSN counter for unlogged rels: 0/3E8
-  Minimum recovery ending location: 0/95011DF0
-  Min recovery ending loc's timeline: 32
+  Minimum recovery ending location: 0/A90002D0
+  Min recovery ending loc's timeline: 46
   Backup start location: 0/0
   Backup end location: 0/0
   End-of-backup record required: no
@@ -1387,14 +1378,123 @@ pg_rewind: Done!
   Data page checksum version: 1
   Mock authentication nonce: f6dfe4464252d43f17386483dfdaf87961a5633d17ee3386e6e60a1504df09e8
 
-2024-12-24 17:42:53,046 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:53,048 INFO: starting as a secondary
-2024-12-24 17:42:53,265 INFO: postmaster pid=2892
-2024-12-24 17:42:54,299 INFO: Lock owner: patroni1; I am patroni2
-2024-12-24 17:42:54,299 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-24 17:42:54,450 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-24 17:42:55,066 INFO: establishing a new patroni restapi connection to postgres
-2024-12-24 17:42:55,183 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:05,176 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:11:05,183 INFO: Local timeline=46 lsn=0/A90002D0
+2024-12-25 23:11:05,320 INFO: primary_timeline=46
+2024-12-25 23:11:05,320 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:11:05,402 INFO: starting as a secondary
+2024-12-25 23:11:05,616 INFO: postmaster pid=50326
+2024-12-25 23:11:06,634 INFO: Lock owner: patroni1; I am patroni2
+2024-12-25 23:11:06,635 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:11:06,706 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:06,797 INFO: establishing a new patroni restapi connection to postgres
+2024-12-25 23:11:17,241 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:27,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:37,150 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:47,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:11:57,178 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:12:07,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
 ```
 
-3) Теперь попробуем сценарий остановки patroni с включенным postgresql на мастер ноде
+5.3. Попробуем "убить" процесс patroni na мастер ноде:
+
+Посмотрим, pid процесса на мастере
+
+```
+daa@patroni1:~$ sudo systemctl status patroni
+[sudo] password for daa:
+● patroni.service - Runners to orchestrate a high-availability PostgreSQL
+     Loaded: loaded (/usr/lib/systemd/system/patroni.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2024-12-25 23:17:57 MSK; 1min 31s ago
+   Main PID: 75738 (patroni)
+      Tasks: 17 (limit: 4558)
+     Memory: 2.0G (peak: 2.0G)
+        CPU: 2.236s
+     CGroup: /system.slice/patroni.service
+             ├─71744 /usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/15/main --config-file=/etc/postgresql/15/main/p>
+             ├─71746 "postgres: patroni-cluster: logger "
+             ├─71747 "postgres: patroni-cluster: checkpointer "
+             ├─71748 "postgres: patroni-cluster: background writer "
+             ├─72980 "postgres: patroni-cluster: walwriter "
+             ├─72981 "postgres: patroni-cluster: autovacuum launcher "
+             ├─72982 "postgres: patroni-cluster: archiver last was 0000002D00000000000000A9.partial"
+             ├─72983 "postgres: patroni-cluster: logical replication launcher "
+             ├─74374 "postgres: patroni-cluster: walsender replicator 192.168.1.112(60794) streaming 0/A90002D0"
+             ├─75738 /usr/bin/python3 /usr/bin/patroni /etc/patroni/config.yml
+             ├─75746 "postgres: patroni-cluster: postgres postgres [local] idle"
+             └─75757 "postgres: patroni-cluster: postgres postgres [local] idle"
+```
+
+"Убъем" процесс по pid:
+
+```
+daa@patroni1:~$ sudo kill -9 75738
+```
+
+Посмотрим в логи patroni на мастере:
+
+```
+2024-12-25 23:17:54,609 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-25 23:17:57,893 INFO: Selected new etcd server http://192.168.1.109:2379
+2024-12-25 23:17:57,896 WARNING: I am the leader but not owner of the lease
+2024-12-25 23:17:57,902 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2024-12-25 23:17:57,969 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-25 23:17:57,995 INFO: Changed archive_mode from 'on' to 'True' (restart might be required)
+2024-12-25 23:17:57,995 INFO: Changed synchronous_commit from 'on' to 'True'
+2024-12-25 23:17:57,996 INFO: Changed wal_compression from 'pglz' to 'True'
+2024-12-25 23:17:58,004 INFO: Reloading PostgreSQL configuration.
+2024-12-25 23:17:59,529 WARNING: I am the leader but not owner of the lease
+2024-12-25 23:17:59,751 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-25 23:17:59,870 INFO: establishing a new patroni restapi connection to postgres
+2024-12-25 23:18:09,615 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-25 23:18:19,572 INFO: no action. I am (patroni1), the leader with the lock
+```
+
+И на второй ноде:
+
+```
+2024-12-25 23:17:07,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:17,179 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:27,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:37,179 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:47,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:57,179 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:17:59,721 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:18:09,659 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-25 23:18:20,159 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+```
+
+Процесс был самостоятельно перезапущен, однако прерывание по операциям записи все таки зафиксировалось, но переключения не произошло
+
+```
+ Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-25 23:21:41.070177
+
+Trying to connect
+Unable to connect to database :
+connection to server at "192.168.1.115", port 5000 failed: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+
+daa@test1:~$ ./HAtester.py 5000
+Unable to connect to database :
+connection to server at "192.168.1.115", port 5000 failed: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+
+daa@test1:~$ ./HAtester.py 5000
+Unable to connect to database :
+connection to server at "192.168.1.115", port 5000 failed: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+
+daa@test1:~$ ./HAtester.py 5000
+Unable to connect to database :
+connection to server at "192.168.1.115", port 5000 failed: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+
+daa@test1:~$ ./HAtester.py 5000
+^[[A Working with:   MASTER - 192.168.1.111
+     Inserted: 2024-12-25 23:21:48.588856
+```
