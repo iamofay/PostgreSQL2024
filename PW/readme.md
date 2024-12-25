@@ -32,7 +32,7 @@ etcd — база данных для кластера patroni, критичес
 ![image](https://github.com/user-attachments/assets/02174db7-6a00-40d2-9936-710762d7f82a)
 ![image](https://github.com/user-attachments/assets/b3339d60-a147-487c-adaf-e53ca34ee0ce)
 
-1. 1. Установим etcd
+1.1. Установим etcd
   
 Используем репозиторий на github, установим версию v3.5.17
 
@@ -88,7 +88,7 @@ Go Version: go1.22.9
 Go OS/Arch: linux/amd64
 ```
 
-1. 2. Добавим в PATH:
+1.2. Добавим в PATH:
 
 ```
 sudo cp /tmp/etcd-download-test/etcd* /usr/local/bin
@@ -117,7 +117,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-1. 3. Настроим кластер:
+1.3. Настроим кластер:
 
 Откройте конфигурационный файл для редактирования:
 
@@ -177,7 +177,7 @@ sudo systemctl enable --now etcd
 sudo systemctl restart etcd
 ```
 
-1. 4. Убедимся, что служба работает на всех узлах:
+1.4. Убедимся, что служба работает на всех узлах:
 
 ```
 daa@etcd1:~$ systemctl status etcd
@@ -228,7 +228,7 @@ daa@etcd1:~$ etcdctl -w table endpoint --cluster status
 
 Основной задачей Patroni является обеспечение надежного переключения роли ведущего узла на резервный узел. Для максимальной доступности СУБД в кластере Patroni необходимо хранить и при необходимости изменять информацию о роли узлов. Для этого используется DCS, которое реализуется с помощью etcd или consul. DCS представляет собой распределенное хранилище конфигурации ключ/значение. В нашем случае кластер ETCD.
 
-2. 1. Установим postgre (информация взята из примеров ДЗ, в проектной работе выполнено по аналогии)
+2.1. Установим postgre (информация взята из примеров ДЗ, в проектной работе выполнено по аналогии)
 
 Утсановим некоторые пакеты
 
@@ -308,7 +308,7 @@ daa@patroni1:~$ sudo -u postgres psql -c \
 sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'QWEasd123';"
 ```
 
-2. 2. Приступим к дальнейшей подготовке patroni
+2.2. Приступим к дальнейшей подготовке patroni
 
 Для начала нам нужно остановить службу и удалить каталог с данными:
 
@@ -351,7 +351,7 @@ daa@patroni1:~$ source .venv/bin/activate
 (.venv) daa@patroni1:~$ deactivate
 ```
 
-2. 3. Теперь настроим конфигурацию patroni
+2.3. Теперь настроим конфигурацию patroni
 
 ```
 daa@patroni1:~$ sudo nano /etc/patroni/config.yml
@@ -522,7 +522,7 @@ daa@patroni1:~$ sudo chown postgres:postgres -R /etc/patroni
 daa@patroni1:~$ sudo chmod 700 /etc/patroni
 ```
 
-2. 4. Запустим кластер patroni:
+2.4. Запустим кластер patroni:
 
 ```
 daa@patroni1:~$ sudo systemctl start patroni
@@ -564,13 +564,14 @@ Dec 18 14:35:11 patroni1 patroni[33819]: 2024-12-18 14:35:11,479 INFO: no action
 И проверим статус кластера:
 
 ```
-daa@patroni1:/var/log/postgresql$ sudo patronictl -c /etc/patroni/config.yml list
-+ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
-| Member   | Host          | Role    | State     | TL | Lag in MB |
-+----------+---------------+---------+-----------+----+-----------+
-| patroni1 | 192.168.1.111 | Replica | streaming | 20 |         0 |
-| patroni2 | 192.168.1.112 | Leader  | running   | 20 |           |
-+----------+---------------+---------+-----------+----+-----------+
+daa@patroni2:~$ sudo patronictl -c /etc/patroni/config.yml list
+[sudo] password for daa:
++ Cluster: patroni-cluster (7449702151863418585) ---+-----------+
+| Member   | Host          | Role    | State   | TL | Lag in MB |
++----------+---------------+---------+---------+----+-----------+
+| patroni1 | 192.168.1.111 | Leader  | running | 43 |           |
+| patroni2 | 192.168.1.112 | Replica | running | 43 |         0 |
++----------+---------------+---------+---------+----+-----------+
 ```
 
 Развернем демо БД (в соответствии с описанием в документации), просто для тестов
@@ -703,39 +704,212 @@ demo=# \q
 
 - haproxy1 192.168.1.113
 - haproxy1 192.168.1.114
+- VIP 192.168.1.115
 
 HAProxy — инструмент обеспечения высокой доступности и балансировки нагрузки. 
 Keepalived — программный инструмент, предназначенный для обеспечения высокой доступности и отказоустойчивости сетевых сервисов. 
 VIP (Virtual IP Address) — это виртуальный IP-адрес, который не привязан к какому-то конкретному физическому интерфейсу. VIP может быть использован для того, чтобы обеспечить доступ к сервису, который работает на нескольких серверах (например, в кластере, как в нашем случае).
 
-Настроим VIP для кластера haproxy
+4.1. Настроим VIP для кластера haproxy
 
 Изменим конфигурацию интерфейса на обеих нодах и добавим ip адрес 192.168.1.115 к интерфейсам.
 
 ```
-  GNU nano 7.2                   90-NM-14f59568-5076-387a-aef6-10adfcca2e26.yaml
+daa@haproxy1:/etc/netplan$ sudo nano 90-NM-14f59568-5076-387a-aef6-10adfcca2e26.yaml
+```
+
+Для этого отредактируем конфигурационных файл в ОС 
+
+```
+  GNU nano 7.2                             90-NM-14f59568-5076-387a-aef6-10adfcca2e26.yaml
 network:
   version: 2
   ethernets:
     ens33:
       renderer: NetworkManager
-      match: {}
+      match:
+        macaddress: "00:0C:29:6D:91:97"
       addresses:
       - "192.168.1.113/24"
       - "192.168.1.115/24"
+      nameservers:
+        addresses:
+        - 8.8.8.8
       networkmanager:
         uuid: "14f59568-5076-387a-aef6-10adfcca2e26"
         name: "netplan-ens33"
         passthrough:
-          connection.timestamp: "1734937357"
+          connection.timestamp: "1734969280"
           ipv4.address1: "192.168.1.113/24,192.168.1.1"
           ipv4.method: "manual"
           ipv6.method: "disabled"
           ipv6.ip6-privacy: "-1"
           proxy._: ""
+```
+
+А так же занесем в файл hosts данные по ip адресу кластера haproxy-cluster:
+
+```
+daa@haproxy1:/etc/netplan$ sudo nano /etc/hosts
+```
 
 ```
 
+ GNU nano 7.2                                               /etc/hosts
+127.0.0.1 localhost
+127.0.1.1 daa-pgsql
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+192.168.1.106   etcd1
+192.168.1.109   etcd2
+192.168.1.110   etcd3
+192.168.1.111   patroni1
+192.168.1.112   patroni2
+192.168.1.113   haproxy1
+192.168.1.114   haproxy2
+192.168.1.115   haproxy-cluster
+```
+
+Включим параметры ядра net.ipv4.ip_nonlocal_bind, net.ipv4.ip_forward, выполнив следующие команды:
+
+```
+daa@haproxy1:/etc/netplan$ sudo echo net.ipv4.ip_nonlocal_bind=1 >> /etc/sysctl.conf
+daa@haproxy1:/etc/netplan$ sudo echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
+daa@haproxy1:/etc/netplan$ sudo sysctl -p
+```
+
+4.2. Установим Haproxy и keepalived
+
+Haproxy:
+
+```
+daa@haproxy1:/etc/netplan$ sudo apt install haproxy -y
+```
+
+keepalived:
+
+```
+daa@haproxy1:/etc/netplan$ sudo apt update
+daa@haproxy1:/etc/netplan$ sudo apt install keepalived
+```
+
+4.3. Настройка keepalived
+   
+Создадим директорию keepalived:
+
+```
+daa@haproxy1:/etc/netplan$ sudo mkdir -p /usr/libexec/keepalived
+```
+
+Создадим файл скрипта haproxy_check.sh для отслеживания работоспособности HAProxy:
+
+```
+daa@haproxy1:/etc/netplan$ sudo nano /usr/libexec/keepalived/haproxy_check.sh
+```
+
+
+Добавим в файл haproxy_check.sh скрипт проверки работоспособности HAProxy:
+
+```
+#!/bin/bash
+/bin/kill -0 $(cat /var/run/haproxy.pid)
+```
+
+Создадим файл конфигурации keepalived на каждой ноде:
+
+```
+daa@haproxy1:/etc/netplan$ sudo nano /etc/keepalived/keepalived.conf
+```
+
+Добавим в файл keepalived.conf пример конфигураций keepalived для каждого узла, там же укажем VIP:
+
+```
+  GNU nano 7.2                                     /etc/keepalived/keepalived.conf
+global_defs {
+  router_id haproxy1
+  enable_script_security
+  script_user root
+}
+
+vrrp_script haproxy_check {
+  script "/usr/libexec/keepalived/haproxy_check.sh"
+  interval 2
+  weight 2
+}
+
+vrrp_instance VI_1 {
+  interface ens33
+  virtual_router_id 101
+  priority 100
+  advert_int 2
+  state MASTER
+  virtual_ipaddress {
+    192.168.1.115
+  }
+  track_script {
+    haproxy_check
+  }
+  authentication {
+    auth_type PASS
+    auth_pass SecretPassword
+  }
+}
+```
+
+Где введённые параметры:
+
+  router_id — ID роутера, уникальное значение на каждом узле;
+  script_user — пользователь, от имени которого будут запускаться скрипты VRRP;
+  interface — наименование интерфейса, к которому будет привязан keepalived;
+  virtual_router_id — ID виртуального роутера, общее значение на всех узлах;
+  priority — приоритет нод внутри виртуального роутера;
+  state — тип роли ноды в виртуальном роутере;
+  virtual_ipaddress — виртуальный IP;
+  auth_type — тип аутентификации в виртуальном роутере;
+  auth_pass — пароль.
+
+Перезапустим keepalived на всех узлах:
+
+```
+sudo systemctl restart keepalived
+```
+
+Проверим статус
+
+```
+daa@haproxy1:/etc/netplan$ sudo systemctl status keepalived
+● keepalived.service - Keepalive Daemon (LVS and VRRP)
+     Loaded: loaded (/usr/lib/systemd/system/keepalived.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2024-12-25 18:55:43 MSK; 12s ago
+       Docs: man:keepalived(8)
+             man:keepalived.conf(5)
+             man:genhash(1)
+             https://keepalived.org
+   Main PID: 2961 (keepalived)
+      Tasks: 2 (limit: 4558)
+     Memory: 1.8M (peak: 2.1M)
+        CPU: 8ms
+     CGroup: /system.slice/keepalived.service
+             ├─2961 /usr/sbin/keepalived --dont-fork
+             └─2964 /usr/sbin/keepalived --dont-fork
+
+Dec 25 18:55:43 haproxy1 Keepalived[2961]: Starting VRRP child process, pid=2964
+Dec 25 18:55:43 haproxy1 Keepalived_vrrp[2964]: (/etc/keepalived/keepalived.conf: Line 27) Truncating auth_pass to 8 characters
+Dec 25 18:55:43 haproxy1 Keepalived_vrrp[2964]: WARNING - script '/usr/libexec/keepalived/haproxy_check.sh' is not executable f>
+Dec 25 18:55:43 haproxy1 Keepalived[2961]: Startup complete
+Dec 25 18:55:43 haproxy1 systemd[1]: Started keepalived.service - Keepalive Daemon (LVS and VRRP).
+Dec 25 18:55:43 haproxy1 Keepalived_vrrp[2964]: (VI_1) Entering BACKUP STATE (init)
+Dec 25 18:55:44 haproxy1 Keepalived_vrrp[2964]: (VI_1) received lower priority (90) advert from 192.168.1.114 - discarding
+Dec 25 18:55:46 haproxy1 Keepalived_vrrp[2964]: (VI_1) received lower priority (90) advert from 192.168.1.114 - discarding
+Dec 25 18:55:48 haproxy1 Keepalived_vrrp[2964]: (VI_1) received lower priority (90) advert from 192.168.1.114 - discarding
+Dec 25 18:55:49 haproxy1 Keepalived_vrrp[2964]: (VI_1) Entering MASTER STATE
+```
 
 
 Проверим подключение к БД через haproxy
