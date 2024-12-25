@@ -706,9 +706,15 @@ demo=# \q
 - haproxy1 192.168.1.114
 - VIP 192.168.1.115
 
-HAProxy — инструмент обеспечения высокой доступности и балансировки нагрузки. 
 Keepalived — программный инструмент, предназначенный для обеспечения высокой доступности и отказоустойчивости сетевых сервисов. 
 VIP (Virtual IP Address) — это виртуальный IP-адрес, который не привязан к какому-то конкретному физическому интерфейсу. VIP может быть использован для того, чтобы обеспечить доступ к сервису, который работает на нескольких серверах (например, в кластере, как в нашем случае).
+HAProxy — инструмент обеспечения высокой доступности и балансировки нагрузки. С его помощью автоматически проверяется порт 8008 сервиса Patroni на серверах PostgreSQL с ролью master.
+
+Трафик операций в кластер распределяется следующим образом:
+
+операции записи, приходящие на haproxy-cluster:5000, направляются на сервер с ролью master;
+операции чтения, приходящие на haproxy-cluster:5001, направляются на сервера с ролью slave.
+В случае сбоя весь трафик будет перенаправлен в кластер Master-Replica(s), т. е. операции записи и чтения начнут поступать именно сюда.
 
 4.1. Настроим VIP для кластера haproxy
 
@@ -813,7 +819,6 @@ daa@haproxy1:/etc/netplan$ sudo mkdir -p /usr/libexec/keepalived
 daa@haproxy1:/etc/netplan$ sudo nano /usr/libexec/keepalived/haproxy_check.sh
 ```
 
-
 Добавим в файл haproxy_check.sh скрипт проверки работоспособности HAProxy:
 
 ```
@@ -874,13 +879,84 @@ vrrp_instance VI_1 {
   auth_type — тип аутентификации в виртуальном роутере;
   auth_pass — пароль.
 
-Перезапустим keepalived на всех узлах:
+
+4.4. Настроим haproxy
+
+Переместим конфигурационный файл по умолчанию:
 
 ```
-sudo systemctl restart keepalived
+daa@haproxy1:/etc/netplan$ sudo mv /etc/haproxy/haproxy.cfg{,.original}
 ```
 
-Проверим статус
+Откроем для редактирования конфигурационный файл:
+
+```
+daa@haproxy1:/etc/netplan$ sudo nano /etc/haproxy/haproxy.cfg
+```
+
+И добавим в него конфигурацию:
+
+```
+  GNU nano 7.2                                        /etc/haproxy/haproxy.cfg
+global
+    maxconn 100000
+    log 127.0.0.1:514 local0
+    log 127.0.0.1:514 local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user postgres
+    group postgres
+    daemon
+
+defaults
+    mode tcp
+    log global
+    retries 2
+    timeout queue 5s
+    timeout connect 5s
+    timeout client 60m
+    timeout server 60m
+    timeout check 15s
+
+listen stats
+    mode http
+    bind haproxy-cluster:7000
+    stats enable
+    stats uri /
+
+### PostgreSQL ###
+listen postgres_master
+    bind *:5000
+    option tcplog
+    option httpchk OPTIONS /master
+    http-check expect status 200
+    default-server inter 3s fastinter 1s fall 3 rise 4 on-marked-down shutdown-sessions
+    server patroni1 patroni1:6432 check port 8008
+    server patroni2 patroni2:6432 check port 8008
+
+listen postgres_replicas
+    bind *:5001
+    option tcplog
+    option httpchk OPTIONS /health
+    balance roundrobin
+    http-check expect status 200
+    default-server inter 3s fastinter 1s fall 3 rise 2 on-marked-down shutdown-sessions
+    server patroni1 patroni1:6432 check port 8008
+    server patroni2 patroni2:6432 check port 8008
+### PostgreSQL ###
+```
+
+Перезапустим keepalived и Haproxy на всех узлах:
+
+```
+daa@haproxy1:/etc/netplan$ sudo systemctl restart keepalived
+daa@haproxy1:/etc/netplan$ sudo systemctl restart haproxy
+```
+
+4.5. Проверим результат.
+
+Проверим статус keepalived:
 
 ```
 daa@haproxy1:/etc/netplan$ sudo systemctl status keepalived
@@ -911,6 +987,36 @@ Dec 25 18:55:48 haproxy1 Keepalived_vrrp[2964]: (VI_1) received lower priority (
 Dec 25 18:55:49 haproxy1 Keepalived_vrrp[2964]: (VI_1) Entering MASTER STATE
 ```
 
+Проверим статус Haproxy:
+
+```
+daa@haproxy1:/etc/netplan$ sudo systemctl status haproxy
+● haproxy.service - HAProxy Load Balancer
+     Loaded: loaded (/usr/lib/systemd/system/haproxy.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2024-12-25 16:23:28 MSK; 5h 59min ago
+       Docs: man:haproxy(1)
+             file:/usr/share/doc/haproxy/configuration.txt.gz
+   Main PID: 1321 (haproxy)
+     Status: "Ready."
+      Tasks: 3 (limit: 4558)
+     Memory: 23.0M (peak: 23.5M)
+        CPU: 8.085s
+     CGroup: /system.slice/haproxy.service
+             ├─1321 /usr/sbin/haproxy -Ws -f /etc/haproxy/haproxy.cfg -p /run/haproxy.pid -S /run/haproxy-master.sock
+             └─1373 /usr/sbin/haproxy -Ws -f /etc/haproxy/haproxy.cfg -p /run/haproxy.pid -S /run/haproxy-master.sock
+
+Dec 25 18:13:11 haproxy1 haproxy[1373]: [ALERT]    (1373) : proxy 'postgres_master' has no server available!
+Dec 25 18:13:11 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_replicas/patroni2 is DOWN, reason: Layer7 wrong sta>
+Dec 25 18:13:14 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_master/patroni1 is UP, reason: Layer7 check passed,>
+Dec 25 18:13:15 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_replicas/patroni2 is UP, reason: Layer7 check passe>
+Dec 25 18:15:14 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_master/patroni1 is DOWN, reason: Layer7 wrong statu>
+Dec 25 18:15:14 haproxy1 haproxy[1373]: [ALERT]    (1373) : proxy 'postgres_master' has no server available!
+Dec 25 18:15:17 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_master/patroni2 is UP, reason: Layer7 check passed,>
+Dec 25 18:18:41 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_master/patroni2 is DOWN, reason: Layer7 wrong statu>
+Dec 25 18:18:41 haproxy1 haproxy[1373]: [ALERT]    (1373) : proxy 'postgres_master' has no server available!
+Dec 25 18:18:42 haproxy1 haproxy[1373]: [WARNING]  (1373) : Server postgres_master/patroni1 is UP, reason: Layer7 check passed,>
+lines 1-24/24 (END)
+```
 
 Проверим подключение к БД через haproxy
 
@@ -936,9 +1042,17 @@ Type "help" for help.
 demo=#
 ```
 
-Посмотрим результат в веб интерфейсе
+Посмотрим результат в веб интерфейсе Haproxy
 
-![image](https://github.com/user-attachments/assets/6062cb65-d9b3-48dd-a847-c5a34a9817b2)
+http://192.168.1.115:7000/
+
+![image](https://github.com/user-attachments/assets/21fd9eaa-aecb-4275-b1d2-c226b7861c1e)
+
+Все компоненты работают. Можно переходить к тестированию.
+
+#### 5. Протестируем то, что получилось
+
+5.1. Подготовка
 
 Попробуем протестировать, то что у нас получилось, для тестирования будем использовать hatester
 
@@ -1012,9 +1126,7 @@ Working with:   MASTER - 192.168.1.112
      Retrived: 2024-12-23 13:49:31.097560
 ```
 
-Попробуем сценарии тестирования:
-
-1) Потеря сетевой связи с Replica
+5.1. Потеря сетевой связи с Replica
 
 Отключим сетевой интерфейс ВМ реплики, на данный момент это patroni1
 
@@ -1031,15 +1143,6 @@ Working with:   MASTER - 192.168.1.112
 
 ```
  Working with:    REPLICA - 192.168.1.111
-     Retrived: 2024-12-24 14:56:17.111425
-
- Working with:    REPLICA - 192.168.1.111
-     Retrived: 2024-12-24 14:56:18.115119
-
- Working with:    REPLICA - 192.168.1.111
-     Retrived: 2024-12-24 14:56:19.119822
-
- Working with:    REPLICA - 192.168.1.111
      Retrived: 2024-12-24 14:56:20.123431
 
 Trying to connect
@@ -1049,8 +1152,6 @@ Trying to connect
  Working with:   MASTER - 192.168.1.112
      Inserted: 2024-12-24 14:56:36.046823
 
- Working with:   MASTER - 192.168.1.112
-     Inserted: 2024-12-24 14:56:37.050001
 ```
 
 При этом в логах haproxy:
@@ -1101,7 +1202,7 @@ ion.HTTPConnection object at 0x73b31412b860>: Failed to establish a new connecti
 2024-12-24 15:00:26,393 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
 ```
 
-2) Потеря сетевой связанности с Master
+5.2. Потеря сетевой связанности с Master
 
 Отключим сетевой интерфейс ВМ мастера, на данный момент это patroni2
 
@@ -1120,16 +1221,10 @@ ion.HTTPConnection object at 0x73b31412b860>: Failed to establish a new connecti
  Working with:    REPLICA - 192.168.1.111
      Retrived: 2024-12-24 17:51:02.142796
 
- Working with:    REPLICA - 192.168.1.111
-     Retrived: 2024-12-24 17:51:02.142796
-
  Working with:   MASTER - 192.168.1.111
 Trying to connect
  Working with:   MASTER - 192.168.1.111
      Inserted: 2024-12-24 17:51:49.967949
-
- Working with:   MASTER - 192.168.1.111
-     Inserted: 2024-12-24 17:51:50.980466
 ```
 
 Операции записи остановились, до момена запуска мастер ноды на реплике
@@ -1165,7 +1260,6 @@ haproxу, видим сообщения о недоступности patroni2 �
 ```
 
 ![image](https://github.com/user-attachments/assets/a1f9793b-06b4-41c8-aba4-b1ddc4210eeb)
-
 
 patroni1, переключение в лидера:
 
