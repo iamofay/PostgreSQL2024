@@ -690,7 +690,7 @@ Dec 19 05:20:10 patroni1 systemd[1]: Started pgbouncer.service - connection pool
 Проверим подключение к БД через pgbouncer
 
 ```
-daa@patroni1:/etc$ psql -p 6432 -U postgres
+daa@patroni1:/etc$ c\demo
 Password for user postgres:
 psql (15.10 (Ubuntu 15.10-1.pgdg24.04+1))
 Type "help" for help.
@@ -1273,22 +1273,31 @@ daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
 ```
 
 ```
-2024-12-24 17:29:11,784 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
-2024-12-24 17:29:21,785 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
-2024-12-24 17:29:32,294 INFO: Selected new etcd server http://192.168.1.110:2379
-2024-12-24 17:29:32,298 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
-2024-12-24 17:29:42,292 INFO: Selected new etcd server http://192.168.1.109:2379
-2024-12-24 17:29:42,296 INFO: no action. I am (patroni1), a secondary, and following a leader (patroni2)
-2024-12-24 17:29:54,095 WARNING: Request failed to patroni2: GET http://192.168.1.112:8008/patroni (HTTPConnectionPool(host='192.168.1.112', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x751251d1d280>, 'Connection to 192.168.1.112 timed out. (connect timeout=2)')))
-2024-12-24 17:29:54,101 INFO: promoted self to leader by acquiring session lock
-2024-12-24 17:29:55,175 INFO: no action. I am (patroni1), the leader with the lock
-2024-12-24 17:30:05,167 INFO: Lock owner: patroni1; I am patroni1
-2024-12-24 17:30:05,170 INFO: Dropped unknown replication slot 'patroni2'
-2024-12-24 17:30:05,172 INFO: no action. I am (patroni1), the leader with the lock
-2024-12-24 17:30:15,172 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-26 23:30:43,300 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-26 23:30:53,342 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-26 23:31:05,030 WARNING: Request failed to patroni1: GET http://192.168.1.111:8008/patroni (HTTPConnectionPool(host='192.168.1.111', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x778710584650>, 'Connection to 192.168.1.111 timed out. (connect timeout=2)')))
+2024-12-26 23:31:05,162 INFO: promoted self to leader by acquiring session lock
+2024-12-26 23:31:05,162 INFO: Lock owner: patroni2; I am patroni2
+2024-12-26 23:31:05,250 INFO: updated leader lock during promote
+2024-12-26 23:31:06,301 INFO: no action. I am (patroni2), the leader with the lock
+2024-12-26 23:31:16,170 INFO: Lock owner: patroni2; I am patroni2
+2024-12-26 23:31:16,259 INFO: Dropped unknown replication slot 'patroni1'
+2024-12-26 23:31:16,303 INFO: no action. I am (patroni2), the leader with the lock
+2024-12-26 23:31:26,256 INFO: no action. I am (patroni2), the leader with the lock
+
 ```
 
 Теперь включим ноду patroni2 обратно:
+
+```
+daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
++ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
+| Member   | Host          | Role    | State     | TL | Lag in MB |
++----------+---------------+---------+-----------+----+-----------+
+| patroni1 | 192.168.1.111 | Leader  | running   | 32 |           |
+| patroni2 | 192.168.1.112 | Replica | start failed  | 32 |         0 |
++----------+---------------+---------+-----------+----+-----------+
+```
 
 ```
 daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
@@ -1311,48 +1320,37 @@ haproxу, видим, что нода восстановилась уже как
 По логам patroni2 видим весь процесс восстановления, в т.ч. запуск pg_rewind и выбор etcd сервера
 
 ```
-2024-12-25 23:10:59,342 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:10:59,342 INFO: starting as a secondary
-2024-12-25 23:11:00,623 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:01,385 INFO: postmaster pid=50285
-2024-12-25 23:11:01,478 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:01,654 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:01,655 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:02,584 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:11:02,584 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:03,008 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:03,626 INFO: establishing a new patroni restapi connection to postgres
-2024-12-25 23:11:05,099 INFO: Selected new etcd server http://192.168.1.110:2379
-2024-12-25 23:11:05,169 INFO: No PostgreSQL configuration items changed, nothing to reload.
-2024-12-25 23:11:05,175 WARNING: Postgresql is not running.
-2024-12-25 23:11:05,175 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:11:05,176 INFO: pg_controldata:
+2024-12-26 23:42:09,798 ERROR: Failed to get list of machines from http://192.168.1.109:2379/v3: MaxRetryError("HTTPConnectionPool(host='192.168.1.109', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7a542e39f0e0>: Failed to establish a new connection: [Errno 101] Network is unreachable'))")
+2024-12-26 23:42:09,798 ERROR: KVCache.run EtcdException('Could not get the list of servers, maybe you provided the wrong host(s) to connect to?')
+2024-12-26 23:42:10,931 WARNING: Postgresql is not running.
+2024-12-26 23:42:10,931 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:10,933 INFO: pg_controldata:
   pg_control version number: 1300
   Catalog version number: 202209061
   Database system identifier: 7449702151863418585
-  Database cluster state: shut down in recovery
-  pg_control last modified: Wed Dec 25 23:11:04 2024
-  Latest checkpoint location: 0/A9000220
-  Latest checkpoint's REDO location: 0/A90001E8
-  Latest checkpoint's REDO WAL file: 0000002E00000000000000A9
-  Latest checkpoint's TimeLineID: 46
-  Latest checkpoint's PrevTimeLineID: 46
+  Database cluster state: shut down
+  pg_control last modified: Thu Dec 26 23:40:43 2024
+  Latest checkpoint location: 0/AD000028
+  Latest checkpoint's REDO location: 0/AD000028
+  Latest checkpoint's REDO WAL file: 0000003200000000000000AD
+  Latest checkpoint's TimeLineID: 50
+  Latest checkpoint's PrevTimeLineID: 50
   Latest checkpoint's full_page_writes: on
-  Latest checkpoint's NextXID: 0:29806
+  Latest checkpoint's NextXID: 0:29946
   Latest checkpoint's NextOID: 49243
   Latest checkpoint's NextMultiXactId: 1
   Latest checkpoint's NextMultiOffset: 0
   Latest checkpoint's oldestXID: 717
   Latest checkpoint's oldestXID's DB: 1
-  Latest checkpoint's oldestActiveXID: 29806
+  Latest checkpoint's oldestActiveXID: 0
   Latest checkpoint's oldestMultiXid: 1
   Latest checkpoint's oldestMulti's DB: 1
   Latest checkpoint's oldestCommitTsXid: 0
   Latest checkpoint's newestCommitTsXid: 0
-  Time of latest checkpoint: Wed Dec 25 23:04:03 2024
+  Time of latest checkpoint: Thu Dec 26 23:40:43 2024
   Fake LSN counter for unlogged rels: 0/3E8
-  Minimum recovery ending location: 0/A90002D0
-  Min recovery ending loc's timeline: 46
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
   Backup start location: 0/0
   Backup end location: 0/0
   End-of-backup record required: no
@@ -1378,22 +1376,99 @@ haproxу, видим, что нода восстановилась уже как
   Data page checksum version: 1
   Mock authentication nonce: f6dfe4464252d43f17386483dfdaf87961a5633d17ee3386e6e60a1504df09e8
 
-2024-12-25 23:11:05,176 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:11:05,183 INFO: Local timeline=46 lsn=0/A90002D0
-2024-12-25 23:11:05,320 INFO: primary_timeline=46
-2024-12-25 23:11:05,320 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:11:05,402 INFO: starting as a secondary
-2024-12-25 23:11:05,616 INFO: postmaster pid=50326
-2024-12-25 23:11:06,634 INFO: Lock owner: patroni1; I am patroni2
-2024-12-25 23:11:06,635 INFO: establishing a new patroni heartbeat connection to postgres
-2024-12-25 23:11:06,706 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:06,797 INFO: establishing a new patroni restapi connection to postgres
-2024-12-25 23:11:17,241 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:27,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:37,150 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:47,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:11:57,178 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
-2024-12-25 23:12:07,136 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-26 23:42:10,933 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:10,939 INFO: Local timeline=50 lsn=0/AD000028
+2024-12-26 23:42:10,959 INFO: primary_timeline=51
+2024-12-26 23:42:10,959 INFO: primary: history=47       0/AA0001F0      no recovery target specified
+48      0/AB0000A0      no recovery target specified
+49      0/AC0000A0      no recovery target specified
+50      0/AC0001B8      no recovery target specified
+2024-12-26 23:42:10,965 INFO: running pg_rewind from patroni1
+2024-12-26 23:42:10,993 INFO: running pg_rewind from dbname=postgres user=postgres host=192.168.1.111 port=5432 target_session_attrs=read-write
+2024-12-26 23:42:17,141 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:17,141 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:42:27,141 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:27,186 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:42:29,720 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:29,720 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:42:39,720 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:39,767 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:42:49,721 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:49,721 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:42:59,721 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:42:59,763 INFO: running pg_rewind from patroni1 in progress
+2024-12-26 23:43:01,741 INFO: pg_rewind exit code=0
+2024-12-26 23:43:01,741 INFO:  stdout=
+2024-12-26 23:43:01,741 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/AC0001B8 on timeline 50
+pg_rewind: rewinding from last common checkpoint at 0/AC000108 on timeline 50
+pg_rewind: Done!
+
+2024-12-26 23:43:01,742 WARNING: Postgresql is not running.
+2024-12-26 23:43:01,742 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:43:02,197 INFO: pg_controldata:
+  pg_control version number: 1300
+  Catalog version number: 202209061
+  Database system identifier: 7449702151863418585
+  Database cluster state: in archive recovery
+  pg_control last modified: Thu Dec 26 23:43:00 2024
+  Latest checkpoint location: 0/AC000220
+  Latest checkpoint's REDO location: 0/AC0001E8
+  Latest checkpoint's REDO WAL file: 0000003300000000000000AC
+  Latest checkpoint's TimeLineID: 51
+  Latest checkpoint's PrevTimeLineID: 51
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:29946
+  Latest checkpoint's NextOID: 49243
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 717
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 29946
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Dec 26 23:40:58 2024
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/AC0002D0
+  Min recovery ending loc's timeline: 51
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 2000
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: f6dfe4464252d43f17386483dfdaf87961a5633d17ee3386e6e60a1504df09e8
+
+2024-12-26 23:43:02,198 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:43:02,198 INFO: starting as a secondary
+2024-12-26 23:43:02,699 INFO: postmaster pid=5170
+2024-12-26 23:43:02,848 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-26 23:43:02,876 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-26 23:43:03,770 INFO: Lock owner: patroni1; I am patroni2
+2024-12-26 23:43:03,770 INFO: establishing a new patroni heartbeat connection to postgres
+2024-12-26 23:43:03,902 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-26 23:43:04,694 INFO: establishing a new patroni restapi connection to postgres
+2024-12-26 23:43:09,718 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-26 23:43:20,260 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+
 ```
 
 5.3. Попробуем "убить" процесс patroni na мастер ноде:
@@ -1498,3 +1573,140 @@ daa@test1:~$ ./HAtester.py 5000
 ^[[A Working with:   MASTER - 192.168.1.111
      Inserted: 2024-12-25 23:21:48.588856
 ```
+
+5.4. Отключение etcd:
+
+```
+daa@etcd1:~$ etcdctl -w table endpoint --cluster status
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+-----------------------+
+|         ENDPOINT          |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX |        ERRORS         |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+-----------------------+
+| http://192.168.1.106:2379 | 2125f1467958dff8 |  3.5.17 |  127 kB |      true |      false |        17 |     413670 |             413670 |                       |
+| http://192.168.1.110:2379 | 265b9c61ffe85ba1 |  3.5.17 |  139 kB |     false |      false |        17 |     413670 |             413670 |                       |
+| http://192.168.1.109:2379 | 97ba8852ebaddf74 |  3.5.17 |  115 kB |     false |      false |        17 |     413645 |             413645 | etcdserver: no leader |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+-----------------------+
+```
+
+Отключим сначала одну лидер ноду etcd1:
+
+В логах patroni увидим ошибку взаимодействия с нодой, она периодически будет всплывать, однако кластер все еще работает
+
+```
+2024-12-27 00:00:49,802 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-27 00:00:59,716 INFO: Lock owner: patroni1; I am patroni2
+2024-12-27 00:01:01,387 ERROR: Failed to get list of machines from http://192.168.1.106:2379/v3: MaxRetryError("HTTPConnectionPool(host='192.168.1.106', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x7a542e3acec0>, 'Connection to 192.168.1.106 timed out. (connect timeout=1.6666666666666667)'))")
+2024-12-27 00:01:01,445 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+```
+
+Отключим еще одну ноду etcd3:
+
+В логах patroni уже увидим полный отказ взаимодействия с etcd
+
+```
+2024-12-27 00:46:15,497 - ERROR - Request to server http://192.168.1.109:2379 failed: MaxRetryError("HTTPConnectionPool(host='192.168.1.109', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x752c7ca78cb0>: Failed to establish a new connection: [Errno 113] No route to host'))")
+2024-12-27 00:46:16,072 - ERROR - Request to server http://192.168.1.106:2379 failed: MaxRetryError("HTTPConnectionPool(host='192.168.1.106', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x752c7ca78da0>: Failed to establish a new connection: [Errno 113] No route to host'))")
+2024-12-27 00:46:19,410 - ERROR - Request to server http://192.168.1.110:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='192.168.1.110', port=2379): Read timed out. (read timeout=3.332968132333311)")
+2024-12-27 00:46:21,080 - ERROR - Failed to get list of machines from http://192.168.1.106:2379/v3: MaxRetryError("HTTPConnectionPool(host='192.168.1.106', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x752c7e7d3200>, 'Connection to 192.168.1.106 timed out. (connect timeout=1.6666666666666667)'))")
+patroni.dcs.etcd3.Etcd3Error: Etcd is not responding properly
+```
+
+Haproxy говорит, что не видит рабочих мастер нод, однако видит реплики
+
+![image](https://github.com/user-attachments/assets/2a5c259b-9663-4630-8a15-27f67f7ab845)
+
+И действительно, мы можем обратиться к реплике в режиме чтения:
+
+```
+
+ Working with:    REPLICA - 192.168.1.112
+     Retrived: 2024-12-27 00:45:52.234837
+
+ Working with:    REPLICA - 192.168.1.112
+     Retrived: 2024-12-27 00:45:52.234837
+
+ Working with:    REPLICA - 192.168.1.112
+     Retrived: 2024-12-27 00:45:52.234837
+
+```
+
+Попробуем подключиться к БД и внести изменения, к той ноде, что была репликой, до манипуляций с etcd
+
+```
+daa@patroni2:~$ psql -p 6432 -U postgres
+Password for user postgres:
+psql (15.10 (Ubuntu 15.10-1.pgdg24.04+1))
+Type "help" for help.
+
+postgres=# \c demo
+You are now connected to database "demo" as user "postgres".
+demo=# CREATE TABLE splitblain(c1 text);
+ERROR:  cannot execute CREATE TABLE in a read-only transaction
+demo=#
+```
+
+Получим ошибку, которая говорит, что в транзакциях только для чтения, нельзя вносить изменения.
+
+Попробуем подключиться к БД и внести изменения, к той ноде, что была мастером, до манипуляций с etcd
+
+```
+daa@patroni1:~$ psql -p 6432 -U postgres
+Password for user postgres:
+psql (15.10 (Ubuntu 15.10-1.pgdg24.04+1))
+Type "help" for help.
+
+postgres=# \c demo
+You are now connected to database "demo" as user "postgres".
+demo=# CREATE TABLE splitblain(c1 text);
+ERROR:  cannot execute CREATE TABLE in a read-only transaction
+demo=#
+```
+
+Получим аналогичную ошибку. Таким образом из БД можно прочитать данные, но занести нельзя.
+
+Теперь восстановим etcd1 и 3:
+
+patroni восстановился
+
+```
+2024-12-27 00:56:42,800 ERROR: Failed to get list of machines from http://192.168.1.109:2379/v3: MaxRetryError("HTTPConnectionPool(host='192.168.1.109', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cd71e327f80>: Failed to establish a new connection: [Errno 113] No route to host'))")
+2024-12-27 00:56:42,804 INFO: Lock owner: patroni1; I am patroni1
+2024-12-27 00:56:42,850 WARNING: Dropping physical replication slot patroni2 because of its xmin value 32600
+2024-12-27 00:56:42,850 WARNING: Unable to drop replication slot 'patroni2', slot is active
+2024-12-27 00:56:42,893 INFO: promoted self to leader because I had the session lock
+2024-12-27 00:56:44,032 INFO: no action. I am (patroni1), the leader with the lock
+2024-12-27 00:56:53,942 INFO: no action. I am (patroni1), the leader with the lock
+```
+
+```
+2024-12-27 00:56:38,340 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-27 00:56:38,342 WARNING: Loop time exceeded, rescheduling immediately.
+2024-12-27 00:56:38,382 INFO: Lock owner: patroni1; I am patroni2
+2024-12-27 00:56:41,721 ERROR: Request to server http://192.168.1.110:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='192.168.1.110', port=2379): Read timed out. (read timeout=3.3330457093328127)")
+2024-12-27 00:56:41,721 INFO: Reconnection allowed, looking for another server.
+2024-12-27 00:56:41,721 INFO: Retrying on http://192.168.1.109:2379
+2024-12-27 00:56:45,058 ERROR: Request to server http://192.168.1.109:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='192.168.1.109', port=2379): Read timed out. (read timeout=1.7717137793327615)")
+2024-12-27 00:56:45,058 INFO: Reconnection allowed, looking for another server.
+2024-12-27 00:56:45,058 INFO: Retrying on http://192.168.1.106:2379
+2024-12-27 00:56:45,060 INFO: Selected new etcd server http://192.168.1.106:2379
+2024-12-27 00:56:45,061 ERROR: watchprefix failed: ProtocolError("Connection broken: InvalidChunkLength(got length b'', 0 bytes read)", InvalidChunkLength(got length b'', 0 bytes read))
+2024-12-27 00:56:45,146 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-27 00:56:45,190 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+2024-12-27 00:56:55,690 INFO: no action. I am (patroni2), a secondary, and following a leader (patroni1)
+```
+
+```
+daa@patroni1:~$ sudo patronictl -c /etc/patroni/config.yml list
+[sudo] password for daa:
++ Cluster: patroni-cluster (7449702151863418585) +----+-----------+
+| Member   | Host          | Role    | State     | TL | Lag in MB |
++----------+---------------+---------+-----------+----+-----------+
+| patroni1 | 192.168.1.111 | Leader  | running   | 53 |           |
+| patroni2 | 192.168.1.112 | Replica | streaming | 53 |         0 |
++----------+---------------+---------+-----------+----+-----------+
+```
+
+![image](https://github.com/user-attachments/assets/30e9cc85-6122-40a6-9840-39b5ecd87398)
+
+
+
+
