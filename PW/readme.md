@@ -285,6 +285,8 @@ daa@daa-VMware-Virtual-Platform:~$ sudo apt update
 Построение дерева зависимостей… Готово
 Чтение информации о состоянии… Готово
 Может быть обновлено 11 пакетов. Запустите «apt list --upgradable» для их показа.
+
+daa@daa-VMware-Virtual-Platform:~$ sudo apt install postgresql-client-15 postgresql-15
 ```
 
 Устанавливаем PostgreSQL 15 и убедимся что кластер запущен
